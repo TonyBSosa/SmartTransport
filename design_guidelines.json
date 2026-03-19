@@ -1,0 +1,190 @@
+{
+  "project_name": "SmartTransport",
+  "design_system": {
+    "philosophy": "Corporate Utility",
+    "principles": [
+      "Clarity over Style: Information density must be managed with whitespace",
+      "Thumb-First Design: All primary actions within the bottom 50% of the screen",
+      "Status Visibility: Booking states (Green/Yellow/Red) must be instantly recognizable",
+      "Native Feel: Use platform-native navigation and gestures"
+    ],
+    "colors": {
+      "palette": {
+        "primary": "#0056D2",
+        "primary_foreground": "#FFFFFF",
+        "secondary": "#F1F5F9",
+        "secondary_foreground": "#0F172A",
+        "background": "#F8FAFC",
+        "surface": "#FFFFFF",
+        "text_primary": "#1E293B",
+        "text_secondary": "#64748B",
+        "border": "#E2E8F0",
+        "error": "#EF4444",
+        "success": "#10B981",
+        "warning": "#F59E0B"
+      },
+      "status_colors": {
+        "attended": "#10B981",
+        "pending": "#F59E0B",
+        "cancelled": "#EF4444",
+        "not_attended": "#EF4444"
+      }
+    },
+    "typography": {
+      "font_family_heading": "System",
+      "font_family_body": "System",
+      "sizes": {
+        "xs": 12,
+        "sm": 14,
+        "base": 16,
+        "lg": 18,
+        "xl": 20,
+        "2xl": 24,
+        "3xl": 30
+      },
+      "weights": {
+        "regular": "400",
+        "medium": "500",
+        "semibold": "600",
+        "bold": "700"
+      }
+    },
+    "spacing": {
+      "xs": 4,
+      "sm": 8,
+      "md": 16,
+      "lg": 24,
+      "xl": 32,
+      "2xl": 48
+    },
+    "radius": {
+      "sm": 6,
+      "md": 8,
+      "lg": 12,
+      "xl": 16,
+      "full": 9999
+    },
+    "shadows": {
+      "sm": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 1 },
+        "shadowOpacity": 0.05,
+        "shadowRadius": 2,
+        "elevation": 1
+      },
+      "md": {
+        "shadowColor": "#000",
+        "shadowOffset": { "width": 0, "height": 2 },
+        "shadowOpacity": 0.1,
+        "shadowRadius": 4,
+        "elevation": 3
+      }
+    }
+  },
+  "components": {
+    "Button": {
+      "styles": {
+        "primary": {
+          "backgroundColor": "#0056D2",
+          "borderRadius": 8,
+          "paddingVertical": 12,
+          "paddingHorizontal": 16,
+          "alignItems": "center",
+          "justifyContent": "center"
+        },
+        "secondary": {
+          "backgroundColor": "#F1F5F9",
+          "borderRadius": 8,
+          "paddingVertical": 12,
+          "paddingHorizontal": 16,
+          "alignItems": "center",
+          "justifyContent": "center"
+        },
+        "text_primary": {
+          "color": "#FFFFFF",
+          "fontSize": 16,
+          "fontWeight": "600"
+        },
+        "text_secondary": {
+          "color": "#0F172A",
+          "fontSize": 16,
+          "fontWeight": "600"
+        }
+      }
+    },
+    "Card": {
+      "styles": {
+        "container": {
+          "backgroundColor": "#FFFFFF",
+          "borderRadius": 12,
+          "padding": 16,
+          "marginBottom": 12,
+          "borderWidth": 1,
+          "borderColor": "#E2E8F0"
+        }
+      }
+    },
+    "Input": {
+      "styles": {
+        "container": {
+          "marginBottom": 16
+        },
+        "label": {
+          "fontSize": 14,
+          "fontWeight": "500",
+          "color": "#1E293B",
+          "marginBottom": 6
+        },
+        "field": {
+          "backgroundColor": "#FFFFFF",
+          "borderWidth": 1,
+          "borderColor": "#E2E8F0",
+          "borderRadius": 8,
+          "padding": 12,
+          "fontSize": 16,
+          "color": "#1E293B"
+        }
+      }
+    }
+  },
+  "screens": {
+    "Home": {
+      "layout": "Centered Column",
+      "elements": [
+        { "type": "Logo", "text": "SmartTransport", "style": "Heading XL" },
+        { "type": "RoleButton", "label": "Soy Empleado", "icon": "person" },
+        { "type": "RoleButton", "label": "Soy Conductor", "icon": "bus" }
+      ]
+    },
+    "EmployeeBooking": {
+      "layout": "Form ScrollView",
+      "fields": ["Name", "Address", "Zone (Dropdown)", "Time (Picker)", "Transport Type"]
+    },
+    "DriverDashboard": {
+      "layout": "List with Header",
+      "features": ["ZoneFilter", "DateFilter", "PassengerList"],
+      "card_actions": ["Mark Attended (Check)", "Mark Absent (X)"]
+    }
+  },
+  "assets": {
+    "icons": "Use @expo/vector-icons (MaterialIcons or Ionicons)",
+    "images": "None required for MVP, use vector icons"
+  },
+  "universal_guidelines": [
+    "Use StyleSheet.create for all styles",
+    "Avoid inline styles for performance",
+    "Ensure hit slop is large enough for touch targets (min 44px)",
+    "Use SafeAreaView for all screens",
+    "Implement KeyboardAvoidingView for forms"
+  ],
+  "instructions_to_main_agent": [
+    "You are building a React Native Expo app, NOT a web app.",
+    "Do NOT use HTML elements like <div>, <span>, <button>.",
+    "Use <View>, <Text>, <TouchableOpacity>, <TextInput>, <ScrollView>, <FlatList>.",
+    "Do NOT use 'className', use 'style' prop.",
+    "Create a 'constants/Colors.js' file with the palette defined above.",
+    "Create a 'components/Button.js' and 'components/Card.js' first.",
+    "Use 'expo-router' for navigation. Create routes in 'app/' folder.",
+    "Mock the Firebase connection for now if credentials are missing, but structure data as if it were coming from Firestore."
+  ]
+}
