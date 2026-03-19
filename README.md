@@ -158,8 +158,10 @@ Predecir si un usuario asistirá o no.
 ---
 
 ## ▶️ Cómo ejecutar el proyecto
-
+para correr la app
 ```bash
 cd frontend
 npm install
 npx expo start
+
+Para el Admin web  cd AdminWeb/frontend
