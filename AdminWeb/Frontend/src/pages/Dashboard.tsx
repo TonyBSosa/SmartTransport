@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarCheck, Users, UserX, XCircle, TrendingUp, TrendingDown,
 } from "lucide-react";
@@ -224,15 +224,15 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-8 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-[#0056D2] via-blue-600 to-indigo-700 rounded-2xl p-8 text-white shadow-[0_12px_40px_-12px_rgba(0,86,210,0.5)]">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold font-display mb-2">Dashboard Principal</h1>
             <p className="text-blue-100 text-lg">Monitorea el rendimiento de tu sistema de transporte en tiempo real</p>
           </div>
           <div className="hidden md:flex items-center space-x-4">
-            <div className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20">
-              <div className="text-sm text-blue-100 font-medium">Última actualización</div>
+            <div className="glassmorphism rounded-xl px-4 py-3 text-white">
+              <div className="text-sm font-medium opacity-90">Última actualización</div>
               <div className="text-lg font-semibold">{new Date().toLocaleDateString('es-ES')}</div>
             </div>
           </div>
@@ -280,12 +280,12 @@ export default function Dashboard() {
       </div>
 
       {loading ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
-          <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-blue-600 mx-auto mb-6"></div>
+        <div className="premium-card p-12 text-center">
+          <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-primary mx-auto mb-6"></div>
           <p className="text-gray-600 font-semibold text-lg">Cargando datos reales desde Firestore...</p>
         </div>
       ) : sinDatos ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
+        <div className="premium-card p-12 text-center">
           <div className="text-6xl mb-4">📊</div>
           <p className="text-gray-600 font-semibold text-lg">No hay datos disponibles para el origen seleccionado.</p>
         </div>
@@ -295,7 +295,7 @@ export default function Dashboard() {
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               {/* Inasistencias por día */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="premium-card p-6">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-3 bg-blue-100 rounded-xl">
                     <CalendarCheck className="h-5 w-5 text-blue-600" />
@@ -333,7 +333,7 @@ export default function Dashboard() {
               {/* Two charts side by side */}
               <div className="grid md:grid-cols-2 gap-8">
                 {/* Demanda por zona */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="premium-card p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-purple-100 rounded-xl">
                       <Users className="h-5 w-5 text-purple-600" />
@@ -373,7 +373,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Tendencia semanal */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="premium-card p-6">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 bg-red-100 rounded-xl">
                       <TrendingDown className="h-5 w-5 text-red-600" />
@@ -411,7 +411,7 @@ export default function Dashboard() {
               </div>
 
               {/* Demanda por horario */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="premium-card p-6">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-3 bg-green-100 rounded-xl">
                     <TrendingUp className="h-5 w-5 text-green-600" />
@@ -449,7 +449,7 @@ export default function Dashboard() {
 
             {/* Sidebar - Alertas */}
             <div className="space-y-6">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="premium-card p-6">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-3 bg-orange-100 rounded-xl">
                     <XCircle className="h-5 w-5 text-orange-600" />
@@ -477,7 +477,7 @@ export default function Dashboard() {
           </div>
 
           {/* Planificación Table */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="premium-card p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-indigo-100 rounded-xl">

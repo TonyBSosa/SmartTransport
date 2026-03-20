@@ -25,6 +25,22 @@ export default function Login() {
       await signIn(email, password);
       navigate('/');
     } catch (err: any) {
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
+        const adminEmails = ['ale.xavala1980@gmail.com'];
+        if (adminEmails.includes(email)) {
+          try {
+            const { createUserWithEmailAndPassword } = await import('firebase/auth');
+            const { auth } = await import('@/lib/firebase');
+            await createUserWithEmailAndPassword(auth, email, password);
+            navigate('/');
+            return;
+          } catch (createErr: any) {
+            setError(createErr.message || 'Error al crear la cuenta de administrador');
+            setLoading(false);
+            return;
+          }
+        }
+      }
       setError(err.message || 'Error al iniciar sesión');
     } finally {
       setLoading(false);

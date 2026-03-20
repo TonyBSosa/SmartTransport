@@ -50,16 +50,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (userDoc.exists()) {
           const data = userDoc.data();
           let resolvedRole = (data.role as UserRole) ?? null;
-
-          if (!resolvedRole && currentUser.email === 'admin@smarttransport.com') {
+          const adminEmails = [
+            'admin@smarttransport.com', 
+            'ale.xavala1980@gmail.com'
+          ];
+          
+          if (!resolvedRole && currentUser.email && adminEmails.includes(currentUser.email)) {
             resolvedRole = 'admin';
             await setDoc(doc(db, 'users', currentUser.uid), { role: resolvedRole, email: currentUser.email }, { merge: true });
           }
 
           setRole(resolvedRole);
         } else {
-          // Auto-assign admin role to email admin@smarttransport.com if no role set
-          const autoRole: UserRole = currentUser.email === 'admin@smarttransport.com' ? 'admin' : null;
+          // Auto-assign admin role to emails if no role set
+          const adminEmails = ['admin@smarttransport.com', 'ale.xavala1980@gmail.com'];
+          const autoRole: UserRole = currentUser.email && adminEmails.includes(currentUser.email) ? 'admin' : null;
           if (autoRole) {
             await setDoc(doc(db, 'users', currentUser.uid), { role: autoRole, email: currentUser.email }, { merge: true });
           }
