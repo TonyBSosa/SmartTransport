@@ -7,6 +7,7 @@ export default function RootLayout() {
     <UserProvider>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="login" />
         <Stack.Screen name="index" />
         <Stack.Screen name="empleado" />
         <Stack.Screen name="conductor" />

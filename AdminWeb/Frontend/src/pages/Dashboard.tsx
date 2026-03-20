@@ -94,7 +94,8 @@ export default function Dashboard() {
     [reservasFiltradas]
   );
   const fechaMasReciente = useMemo(() => {
-    return [...new Set(eventosFiltrados.map((evento) => evento.fecha).filter(Boolean))].sort().at(-1) ?? "";
+    const fechas = [...new Set(eventosFiltrados.map((evento) => evento.fecha).filter(Boolean))].sort();
+    return fechas[fechas.length - 1] ?? "";
   }, [eventosFiltrados]);
   const asistenciasHoy = useMemo(
     () => eventosFiltrados.filter((evento) => evento.fecha === fechaMasReciente && isAsistencia(evento.estadoAsistencia)).length,
@@ -221,92 +222,250 @@ export default function Dashboard() {
   const sinDatos = !loading && reservasFiltradas.length === 0 && eventosFiltrados.length === 0 && planificacion.length === 0;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-display font-semibold">Dashboard Principal</h1>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-8 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold font-display mb-2">Dashboard Principal</h1>
+            <p className="text-blue-100 text-lg">Monitorea el rendimiento de tu sistema de transporte en tiempo real</p>
+          </div>
+          <div className="hidden md:flex items-center space-x-4">
+            <div className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20">
+              <div className="text-sm text-blue-100 font-medium">Última actualización</div>
+              <div className="text-lg font-semibold">{new Date().toLocaleDateString('es-ES')}</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <KpiCard titulo="Reservas hoy" valor={loading ? "..." : reservasAgendadas.length} icono={<CalendarCheck className="h-4 w-4" />} />
-        <KpiCard titulo="Asistencias" valor={loading ? "..." : asistenciasHoy} icono={<Users className="h-4 w-4" />} variante="success" />
-        <KpiCard titulo="No asistencias" valor={loading ? "..." : noAsistenciasHoy} icono={<UserX className="h-4 w-4" />} variante="danger" />
-        <KpiCard titulo="Cancelaciones" valor={loading ? "..." : cancelaciones} icono={<XCircle className="h-4 w-4" />} variante="warning" />
-        <KpiCard titulo="Tasa asistencia" valor={loading ? "..." : `${tasaAsistencia}%`} icono={<TrendingUp className="h-4 w-4" />} variante="success" />
-        <KpiCard titulo="Tasa inasistencia" valor={loading ? "..." : `${tasaInasistencia}%`} icono={<TrendingDown className="h-4 w-4" />} variante="danger" />
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">
+        <KpiCard
+          titulo="Reservas hoy"
+          valor={loading ? "..." : reservasAgendadas.length}
+          icono={<CalendarCheck className="h-6 w-6" />}
+          variante="default"
+        />
+        <KpiCard
+          titulo="Asistencias"
+          valor={loading ? "..." : asistenciasHoy}
+          icono={<Users className="h-6 w-6" />}
+          variante="success"
+        />
+        <KpiCard
+          titulo="No asistencias"
+          valor={loading ? "..." : noAsistenciasHoy}
+          icono={<UserX className="h-6 w-6" />}
+          variante="danger"
+        />
+        <KpiCard
+          titulo="Cancelaciones"
+          valor={loading ? "..." : cancelaciones}
+          icono={<XCircle className="h-6 w-6" />}
+          variante="warning"
+        />
+        <KpiCard
+          titulo="Tasa asistencia"
+          valor={loading ? "..." : `${tasaAsistencia}%`}
+          icono={<TrendingUp className="h-6 w-6" />}
+          variante="success"
+        />
+        <KpiCard
+          titulo="Tasa inasistencia"
+          valor={loading ? "..." : `${tasaInasistencia}%`}
+          icono={<TrendingDown className="h-6 w-6" />}
+          variante="danger"
+        />
       </div>
 
       {loading ? (
-        <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-          Cargando datos reales desde Firestore...
+        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
+          <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-blue-600 mx-auto mb-6"></div>
+          <p className="text-gray-600 font-semibold text-lg">Cargando datos reales desde Firestore...</p>
         </div>
       ) : sinDatos ? (
-        <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-          No hay datos disponibles para el origen seleccionado.
+        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
+          <div className="text-6xl mb-4">📊</div>
+          <p className="text-gray-600 font-semibold text-lg">No hay datos disponibles para el origen seleccionado.</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="text-sm font-medium mb-4">Inasistencias por día</h3>
-                <ResponsiveContainer width="100%" height={220}>
+        <div className="space-y-8">
+          {/* Charts Section */}
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              {/* Inasistencias por día */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-blue-100 rounded-xl">
+                    <CalendarCheck className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Inasistencias por día</h3>
+                    <p className="text-sm text-gray-500">Últimos 7 días</p>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={inasistenciasPorDia}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" />
-                    <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="cantidad" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                    <XAxis dataKey="dia" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+                        padding: '12px'
+                      }}
+                    />
+                    <Bar dataKey="cantidad" fill="url(#blueGradient)" radius={[8, 8, 0, 0]} />
+                    <defs>
+                      <linearGradient id="blueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.9}/>
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.4}/>
+                      </linearGradient>
+                    </defs>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-card border border-border rounded-lg p-5">
-                  <h3 className="text-sm font-medium mb-4">Demanda por zona</h3>
-                  <ResponsiveContainer width="100%" height={200}>
+              {/* Two charts side by side */}
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Demanda por zona */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-3 bg-purple-100 rounded-xl">
+                      <Users className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Demanda por zona</h3>
+                      <p className="text-sm text-gray-500">Distribución general</p>
+                    </div>
+                  </div>
+                  <ResponsiveContainer width="100%" height={240}>
                     <PieChart>
-                      <Pie data={demandaPorZona} dataKey="cantidad" nameKey="zona" cx="50%" cy="50%" outerRadius={70} label={({ zona }) => zona}>
+                      <Pie
+                        data={demandaPorZona}
+                        dataKey="cantidad"
+                        nameKey="zona"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ zona }) => zona}
+                        labelLine={false}
+                      >
                         {demandaPorZona.map((_, index) => (
                           <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+                          padding: '12px'
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
 
-                <div className="bg-card border border-border rounded-lg p-5">
-                  <h3 className="text-sm font-medium mb-4">Tendencia semanal de inasistencias</h3>
-                  <ResponsiveContainer width="100%" height={200}>
+                {/* Tendencia semanal */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-3 bg-red-100 rounded-xl">
+                      <TrendingDown className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Tendencia semanal</h3>
+                      <p className="text-sm text-gray-500">Últimas 4 semanas</p>
+                    </div>
+                  </div>
+                  <ResponsiveContainer width="100%" height={240}>
                     <LineChart data={tendenciaSemanal}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" />
-                      <XAxis dataKey="semana" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="inasistencias" stroke="#EF4444" strokeWidth={2} dot={{ r: 4 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                      <XAxis dataKey="semana" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                      <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+                          padding: '12px'
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="inasistencias"
+                        stroke="#EF4444"
+                        strokeWidth={3}
+                        dot={{ r: 5, fill: '#EF4444' }}
+                        activeDot={{ r: 7, fill: '#EF4444', stroke: '#fff', strokeWidth: 2 }}
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="text-sm font-medium mb-4">Demanda por horario</h3>
-                <ResponsiveContainer width="100%" height={180}>
+              {/* Demanda por horario */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-green-100 rounded-xl">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Demanda por horario</h3>
+                    <p className="text-sm text-gray-500">Entrada y salida</p>
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={demandaPorHorario}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" />
-                    <XAxis dataKey="horario" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="cantidad" fill="#10B981" radius={[4, 4, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                    <XAxis dataKey="horario" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                    <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+                        padding: '12px'
+                      }}
+                    />
+                    <Bar dataKey="cantidad" fill="url(#greenGradient)" radius={[8, 8, 0, 0]} />
+                    <defs>
+                      <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.9}/>
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.4}/>
+                      </linearGradient>
+                    </defs>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="bg-card border border-border rounded-lg p-5">
-                <h3 className="text-sm font-medium mb-4">Alertas</h3>
+            {/* Sidebar - Alertas */}
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-orange-100 rounded-xl">
+                    <XCircle className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Alertas</h3>
+                    <p className="text-sm text-gray-500">{alertas.length} activas</p>
+                  </div>
+                </div>
                 <div className="space-y-3">
                   {alertas.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No hay alertas relevantes por el momento.</p>
+                    <div className="text-center py-8">
+                      <div className="text-4xl mb-3">✅</div>
+                      <p className="text-gray-600 font-semibold">No hay alertas</p>
+                      <p className="text-sm text-gray-500">Todo está funcionando bien</p>
+                    </div>
                   ) : (
                     alertas.map((alerta, index) => (
                       <AlertaCard key={index} mensaje={alerta.mensaje} severidad={alerta.severidad} />
@@ -317,45 +476,61 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium">Planificación de transporte</h3>
-              <span className="text-xs text-muted-foreground">{planificacion.length} combinaciones zona/hora/día</span>
+          {/* Planificación Table */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-100 rounded-xl">
+                  <CalendarCheck className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Planificación de transporte</h3>
+                  <p className="text-sm text-gray-500">Optimización de rutas y horarios</p>
+                </div>
+              </div>
+              <div className="bg-indigo-100 px-4 py-2 rounded-xl">
+                <span className="text-sm font-semibold text-indigo-700">{planificacion.length} combinaciones</span>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Zona</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Hora</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Día</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Demanda</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Buses necesarios</th>
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Estado</th>
+                  <tr className="border-b border-gray-300 bg-gradient-to-r from-gray-50 to-gray-100">
+                    <th className="text-left px-4 py-4 font-bold text-gray-900">Zona</th>
+                    <th className="text-left px-4 py-4 font-bold text-gray-900">Hora</th>
+                    <th className="text-left px-4 py-4 font-bold text-gray-900">Día</th>
+                    <th className="text-left px-4 py-4 font-bold text-gray-900">Demanda</th>
+                    <th className="text-left px-4 py-4 font-bold text-gray-900">Buses</th>
+                    <th className="text-left px-4 py-4 font-bold text-gray-900">Estado</th>
                   </tr>
                 </thead>
                 <tbody>
                   {planificacion.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                        No hay suficientes reservas para generar planificación de transporte.
+                      <td colSpan={6} className="px-4 py-12 text-center">
+                        <div className="text-4xl mb-3">🚌</div>
+                        <p className="text-gray-600 font-semibold">No hay suficientes reservas</p>
+                        <p className="text-sm text-gray-500">para generar planificación de transporte</p>
                       </td>
                     </tr>
                   ) : (
-                    planificacion.map((item) => (
-                      <tr key={item.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium">{item.zona}</td>
-                        <td className="px-4 py-3">{item.hora}</td>
-                        <td className="px-4 py-3">{item.dia}</td>
-                        <td className="px-4 py-3">{item.demanda}</td>
-                        <td className="px-4 py-3">{item.busesNecesarios}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    planificacion.map((item, index) => (
+                      <tr
+                        key={item.id}
+                        className="border-b border-gray-200 last:border-0 hover:bg-blue-50 transition-colors"
+                      >
+                        <td className="px-4 py-4 font-semibold text-gray-900">{item.zona}</td>
+                        <td className="px-4 py-4 text-gray-700">{item.hora}</td>
+                        <td className="px-4 py-4 text-gray-700">{item.dia}</td>
+                        <td className="px-4 py-4 text-gray-700 font-semibold">{item.demanda}</td>
+                        <td className="px-4 py-4 font-bold text-blue-600">{item.busesNecesarios}</td>
+                        <td className="px-4 py-4">
+                          <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold border ${
                             item.estado === "Saturado"
-                              ? "bg-destructive/10 text-destructive"
+                              ? "bg-red-100 text-red-800 border-red-300"
                               : item.estado === "Subutilizado"
-                                ? "bg-warning/10 text-warning"
-                                : "bg-success/10 text-success"
+                                ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                                : "bg-green-100 text-green-800 border-green-300"
                           }`}>
                             {item.estado}
                           </span>

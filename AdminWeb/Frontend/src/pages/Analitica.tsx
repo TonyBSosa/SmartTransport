@@ -152,101 +152,200 @@ export default function Analitica() {
   }, [demandaPorHorario, demandaPorZona, reservasFiltradas.length, topInasistencias]);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-xl font-display font-semibold">Módulo Analítico</h1>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 rounded-2xl p-8 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold font-display mb-2">Módulo Analítico</h1>
+            <p className="text-orange-100 text-lg">Análisis profundo de datos operacionales e insights estratégicos</p>
+          </div>
+          <div className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/20">
+            <div className="text-sm text-orange-100 font-medium">Registros analizados</div>
+            <div className="text-3xl font-bold">{loading ? "..." : reservasFiltradas.length + eventosFiltrados.length}</div>
+          </div>
+        </div>
+      </div>
 
       {loading ? (
-        <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-          Cargando analítica desde Firestore...
+        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
+          <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-orange-600 mx-auto mb-6"></div>
+          <p className="text-gray-600 font-semibold text-lg">Cargando analítica desde Firestore...</p>
         </div>
       ) : reservasFiltradas.length === 0 && eventosFiltrados.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-          No hay datos suficientes para generar analítica.
+        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
+          <div className="text-4xl mb-4">📊</div>
+          <p className="text-gray-600 font-semibold text-lg">No hay datos suficientes para generar analítica</p>
         </div>
       ) : (
         <>
-          <div className="grid lg:grid-cols-2 gap-6">
-            <div className="bg-card border border-border rounded-lg p-5">
-              <h3 className="text-sm font-medium mb-4">Top usuarios con más inasistencias</h3>
-              <div className="space-y-3">
+          {/* Top Section */}
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Top usuarios con más inasistencias */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-red-100 rounded-xl">
+                  <Users className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Top usuarios con inasistencias</h3>
+                  <p className="text-sm text-gray-500">Top 5 más críticos</p>
+                </div>
+              </div>
+              <div className="space-y-4">
                 {topInasistencias.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No hay inasistencias registradas.</p>
+                  <p className="text-center py-8 text-gray-500 font-semibold">No hay inasistencias registradas</p>
                 ) : (
                   topInasistencias.map((usuario, index) => (
-                    <div key={index} className="flex items-center justify-between">
+                    <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border border-red-200">
                       <div>
-                        <p className="text-sm font-medium">{usuario.nombre}</p>
-                        <p className="text-xs text-muted-foreground">Zona {usuario.zona}</p>
+                        <p className="text-sm font-bold text-gray-900">{index + 1}. {usuario.nombre}</p>
+                        <p className="text-xs text-gray-600 font-medium">📍 Zona {usuario.zona}</p>
                       </div>
-                      <span className="text-sm font-display font-semibold text-destructive">{usuario.inasistencias}</span>
+                      <div className="flex items-center justify-center w-10 h-10 bg-red-100 rounded-full">
+                        <span className="text-sm font-bold text-red-700">{usuario.inasistencias}</span>
+                      </div>
                     </div>
                   ))
                 )}
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-5">
-              <h3 className="text-sm font-medium mb-4">Demanda por zona</h3>
-              <ResponsiveContainer width="100%" height={220}>
+            {/* Demanda por zona */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <Route className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Demanda por zona</h3>
+                  <p className="text-sm text-gray-500">Distribución geográfica</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={demandaPorZona} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} />
-                  <YAxis dataKey="zona" type="category" tick={{ fontSize: 12 }} width={80} />
-                  <Tooltip />
-                  <Bar dataKey="cantidad" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                  <YAxis dataKey="zona" type="category" tick={{ fontSize: 12, fill: '#6B7280' }} width={100} axisLine={{ stroke: '#E5E7EB' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+                      padding: '12px'
+                    }}
+                  />
+                  <Bar dataKey="cantidad" fill="url(#barGradient)" radius={[0, 8, 8, 0]} />
+                  <defs>
+                    <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.9}/>
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.4}/>
+                    </linearGradient>
+                  </defs>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-6">
-            <div className="bg-card border border-border rounded-lg p-5">
-              <h3 className="text-sm font-medium mb-4">Horarios pico</h3>
-              <ResponsiveContainer width="100%" height={220}>
+          {/* Middle Section */}
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Horarios pico */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-green-100 rounded-xl">
+                  <Clock className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Horarios pico</h3>
+                  <p className="text-sm text-gray-500">Demanda por hora</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={demandaPorHorario}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(214,32%,91%)" />
-                  <XAxis dataKey="horario" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip />
-                  <Bar dataKey="cantidad" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                  <XAxis dataKey="horario" tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                  <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} axisLine={{ stroke: '#E5E7EB' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+                      padding: '12px'
+                    }}
+                  />
+                  <Bar dataKey="cantidad" fill="url(#greenGradient)" radius={[8, 8, 0, 0]} />
+                  <defs>
+                    <linearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.9}/>
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0.4}/>
+                    </linearGradient>
+                  </defs>
                 </BarChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-5">
-              <h3 className="text-sm font-medium mb-4">Distribución de estados</h3>
-              <ResponsiveContainer width="100%" height={220}>
+            {/* Distribución de estados */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-purple-100 rounded-xl">
+                  <TrendingUp className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Distribución de estados</h3>
+                  <p className="text-sm text-gray-500">Estados de reservas</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={distribucionEstados} dataKey="cantidad" nameKey="estado" cx="50%" cy="50%" outerRadius={80} label={({ estado }) => estado}>
+                  <Pie 
+                    data={distribucionEstados} 
+                    dataKey="cantidad" 
+                    nameKey="estado" 
+                    cx="50%" 
+                    cy="50%" 
+                    outerRadius={90} 
+                    label={({ estado }) => estado}
+                  >
                     {distribucionEstados.map((_, index) => (
                       <Cell key={index} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.08)',
+                      padding: '12px'
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </div>
 
+          {/* Recommendations Section */}
           <div>
-            <h2 className="text-lg font-display font-semibold mb-4">Recomendaciones operativas</h2>
-            <div className="grid md:grid-cols-2 gap-4">
+            <h2 className="text-2xl font-bold font-display mb-6 text-gray-900">Recomendaciones Operativas</h2>
+            <div className="grid md:grid-cols-2 gap-6">
               {recomendaciones.length === 0 ? (
-                <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-                  Aún no hay datos suficientes para generar recomendaciones.
+                <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
+                  <p className="text-gray-600 font-semibold">Aún no hay datos suficientes para generar recomendaciones</p>
                 </div>
               ) : (
                 recomendaciones.map((recomendacion, index) => {
                   const Icon = iconMap[recomendacion.icono];
 
                   return (
-                    <div key={index} className="bg-card border border-border rounded-lg p-5 flex gap-4">
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <Icon className="h-5 w-5 text-primary" />
+                    <div key={index} className="bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-md transition-all duration-300 flex gap-4">
+                      <div className="h-14 w-14 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <Icon className="h-6 w-6 text-blue-600" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-semibold mb-1">{recomendacion.titulo}</h4>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{recomendacion.descripcion}</p>
+                        <h4 className="text-base font-bold text-gray-900 mb-2">{recomendacion.titulo}</h4>
+                        <p className="text-sm text-gray-600 leading-relaxed">{recomendacion.descripcion}</p>
                       </div>
                     </div>
                   );
