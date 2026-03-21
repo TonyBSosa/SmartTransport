@@ -82,7 +82,7 @@ export default function HomeScreen() {
                 <Ionicons name="person" size={32} color={Colors.primary} />
               </View>
               <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Soy Empleado</Text>
+                <Text style={styles.cardTitle}>Soy Cliente</Text>
                 <Text style={styles.cardDescription}>
                   Crea y gestiona tus reservas diarias
                 </Text>

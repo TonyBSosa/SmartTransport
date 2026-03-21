@@ -34,15 +34,7 @@ const DIAS = [
   { key: 'Domingo', short: 'Dom' },
 ];
 
-function formatHora(hours: number, minutes: number): string {
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
 
-const HORAS_DISPONIBLES = Array.from({ length: 48 }, (_, index) => {
-  const hours = Math.floor(index / 2);
-  const minutes = index % 2 === 0 ? 0 : 30;
-  return formatHora(hours, minutes);
-});
 
 export default function NuevaReserva() {
   const router = useRouter();
@@ -56,10 +48,14 @@ export default function NuevaReserva() {
   const [diasSemana, setDiasSemana] = useState<string[]>([]);
   const [horarioEntrada, setHorarioEntrada] = useState('');
   const [horarioSalida, setHorarioSalida] = useState('');
+  const [pickerType, setPickerType] = useState<'entrada' | 'salida' | null>(null);
+  const [pickerH, setPickerH] = useState('08');
+  const [pickerM, setPickerM] = useState('00');
+  const [pickerA, setPickerA] = useState('AM');
   const [tipoTransporte, setTipoTransporte] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
-  const [timePickerField, setTimePickerField] = useState<'entrada' | 'salida' | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const toggleDia = (dia: string) => {
     setDiasSemana((prev) =>
@@ -67,14 +63,32 @@ export default function NuevaReserva() {
     );
   };
 
-  const seleccionarHora = (hora: string) => {
-    if (timePickerField === 'entrada') {
-      setHorarioEntrada(hora);
-    } else if (timePickerField === 'salida') {
-      setHorarioSalida(hora);
+  const openPicker = (type: 'entrada' | 'salida') => {
+    setPickerType(type);
+    const val = type === 'entrada' ? horarioEntrada : horarioSalida;
+    if (val) {
+      const parts = val.split(' ');
+      const time = parts[0] || '08:00';
+      const ampm = parts[1] || 'AM';
+      const [h, m] = time.split(':');
+      setPickerH(h || '08');
+      setPickerM(m || '00');
+      setPickerA(ampm);
+    } else {
+      setPickerH('08');
+      setPickerM('00');
+      setPickerA('AM');
     }
-    setTimePickerField(null);
   };
+
+  const confirmPicker = () => {
+    const timeStr = `${pickerH}:${pickerM} ${pickerA}`;
+    if (pickerType === 'entrada') setHorarioEntrada(timeStr);
+    else if (pickerType === 'salida') setHorarioSalida(timeStr);
+    setPickerType(null);
+  };
+
+
 
   const handleSubmit = async () => {
     console.log('1. Entró a handleSubmit');
@@ -118,6 +132,7 @@ export default function NuevaReserva() {
       Alert.alert('Campo requerido', 'Por favor ingresa el horario de salida.');
       return;
     }
+
     if (!tipoTransporte) {
       Alert.alert('Campo requerido', 'Por favor selecciona el tipo de transporte.');
       return;
@@ -131,8 +146,8 @@ export default function NuevaReserva() {
       puntoReferencia: puntoReferencia.trim(),
       zona,
       diasSemana,
-      horarioEntrada: horarioEntrada.trim(),
-      horarioSalida: horarioSalida.trim(),
+      horarioEntrada,
+      horarioSalida,
       tipoTransporte,
       observaciones: observaciones.trim(),
     };
@@ -143,9 +158,7 @@ export default function NuevaReserva() {
       const id = await crearReserva(payload);
       console.log('4. crearReserva devolvió id:', id);
       setTelefono(telefonoNormalizado);
-      Alert.alert('Reserva guardada', 'Tu reserva se registró correctamente.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      setShowSuccess(true);
     } catch (error: any) {
       console.error('5. Error en handleSubmit:', error);
       console.error('6. Error code:', error?.code);
@@ -259,29 +272,29 @@ export default function NuevaReserva() {
           </View>
           <View style={styles.row}>
             <View style={[styles.field, styles.flex]}>
-              <Text style={styles.label}>Entrada *</Text>
+              <Text style={styles.label}>Hora de Entrada *</Text>
               <TouchableOpacity
                 testID="input-hora-entrada"
                 style={styles.input}
                 activeOpacity={0.8}
-                onPress={() => setTimePickerField('entrada')}
+                onPress={() => openPicker('entrada')}
               >
                 <Text style={horarioEntrada ? styles.inputText : styles.inputPlaceholder}>
-                  {horarioEntrada || '08:00'}
+                  {horarioEntrada || 'Seleccionar'}
                 </Text>
               </TouchableOpacity>
             </View>
             <View style={{ width: 12 }} />
             <View style={[styles.field, styles.flex]}>
-              <Text style={styles.label}>Salida *</Text>
+              <Text style={styles.label}>Hora de Salida *</Text>
               <TouchableOpacity
                 testID="input-hora-salida"
                 style={styles.input}
                 activeOpacity={0.8}
-                onPress={() => setTimePickerField('salida')}
+                onPress={() => openPicker('salida')}
               >
                 <Text style={horarioSalida ? styles.inputText : styles.inputPlaceholder}>
-                  {horarioSalida || '17:00'}
+                  {horarioSalida || 'Seleccionar'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -348,42 +361,109 @@ export default function NuevaReserva() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
         <Modal
-          visible={timePickerField !== null}
+          visible={pickerType !== null}
           transparent
           animationType="fade"
-          onRequestClose={() => setTimePickerField(null)}
+          onRequestClose={() => setPickerType(null)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>
-                {timePickerField === 'entrada'
-                  ? 'Selecciona hora de entrada'
-                  : 'Selecciona hora de salida'}
+          <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 20 }]}>
+            <View style={[styles.modalCard, { borderRadius: 24 }]}>
+              <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 20 }]}>
+                {pickerType === 'entrada' ? 'Hora de Entrada' : 'Hora de Salida'}
               </Text>
-              <ScrollView
-                style={styles.modalList}
-                contentContainerStyle={styles.modalListContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {HORAS_DISPONIBLES.map((hora) => (
-                  <TouchableOpacity
-                    key={hora}
-                    style={styles.timeOption}
-                    activeOpacity={0.8}
-                    onPress={() => seleccionarHora(hora)}
-                  >
-                    <Text style={styles.timeOptionText}>{hora}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                activeOpacity={0.8}
-                onPress={() => setTimePickerField(null)}
-              >
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', height: 200, marginBottom: 20, backgroundColor: Colors.background, borderRadius: 16, padding: 10 }}>
+                {/* Hours */}
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                  {Array.from({length: 12}, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
+                    <TouchableOpacity key={h} style={[styles.pickerItem, pickerH === h && { backgroundColor: Colors.primaryLight }]} onPress={() => setPickerH(h)}>
+                      <Text style={[styles.pickerItemText, pickerH === h && { color: Colors.primary, fontWeight: '700' }]}>{h}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: Colors.textSecondary, alignSelf: 'center', marginHorizontal: 8 }}>:</Text>
+                {/* Minutes */}
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                  {['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => (
+                    <TouchableOpacity key={m} style={[styles.pickerItem, pickerM === m && { backgroundColor: Colors.primaryLight }]} onPress={() => setPickerM(m)}>
+                      <Text style={[styles.pickerItemText, pickerM === m && { color: Colors.primary, fontWeight: '700' }]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <View style={{ width: 8 }} />
+                {/* AM/PM */}
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                  {['AM', 'PM'].map(a => (
+                    <TouchableOpacity key={a} style={[styles.pickerItem, pickerA === a && { backgroundColor: Colors.primaryLight }]} onPress={() => setPickerA(a)}>
+                      <Text style={[styles.pickerItemText, pickerA === a && { color: Colors.primary, fontWeight: '700' }]}>{a}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <TouchableOpacity style={[styles.submitBtn, { marginTop: 0 }]} activeOpacity={0.8} onPress={confirmPicker}>
+                <Ionicons name="checkmark" size={20} color={Colors.primaryForeground} />
+                <Text style={styles.submitBtnText}>Aceptar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalCancelBtn} activeOpacity={0.8} onPress={() => setPickerType(null)}>
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>        {/* Modal de Éxito */}
+        <Modal
+          visible={showSuccess}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowSuccess(false)}
+        >
+          <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 20 }]}>
+            <View style={[styles.modalCard, { borderRadius: 24 }]}>
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <Ionicons name="checkmark-circle" size={60} color={Colors.primary} />
+              </View>
+              <Text style={[styles.modalTitle, { textAlign: 'center', fontSize: 22, color: Colors.textPrimary }]}>
+                ¡Reserva Creada!
+              </Text>
+              <Text style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 16, marginBottom: 24 }}>
+                Tu reserva se ha registrado correctamente en el sistema.
+              </Text>
+              
+              <View style={{ gap: 12 }}>
+                <TouchableOpacity
+                  style={[styles.submitBtn, { marginTop: 0 }]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setShowSuccess(false);
+                    setNombre('');
+                    setDireccion('');
+                    setPuntoRef('');
+                    setZona('');
+                    setDiasSemana([]);
+                    setHorarioEntrada('');
+                    setHorarioSalida('');
+                    setTipoTransporte('');
+                    setObservaciones('');
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={Colors.primaryForeground} />
+                  <Text style={styles.submitBtnText}>Crear nueva reserva</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalCancelBtn, { flexDirection: 'row', gap: 8, marginTop: 0 }]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setShowSuccess(false);
+                    router.back();
+                  }}
+                >
+                  <Ionicons name="arrow-back-outline" size={20} color={Colors.textSecondary} />
+                  <Text style={styles.modalCancelText}>Volver al inicio</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -524,13 +604,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: Colors.secondary,
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: Colors.divider,
   },
   modalCancelText: {
-    color: Colors.textSecondary,
+    color: Colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
+  },
+  pickerItem: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginVertical: 4,
+  },
+  pickerItemText: {
+    fontSize: 17,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
 });

@@ -17,7 +17,7 @@ import { Reserva, escucharReservasPorTelefono } from '../../lib/firestore';
 
 export default function MisReservas() {
   const router = useRouter();
-  const { telefono, setTelefono } = useUser();
+  const { telefono, setTelefono, logout } = useUser();
   const [phoneInput, setPhoneInput] = useState(telefono);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,9 +87,19 @@ export default function MisReservas() {
             <Text style={styles.headerTitle}>Mis Reservas</Text>
             <Text style={styles.headerSubtitle}>Busca y gestiona tus bookings</Text>
           </View>
-          <View style={styles.headerIcon}>
-            <Ionicons name="document-text" size={32} color={Colors.primary} />
-          </View>
+          
+          <TouchableOpacity 
+            testID="logout-btn"
+            style={styles.headerIconLogOut} 
+            activeOpacity={0.8}
+            onPress={async () => {
+              await logout();
+              router.replace('/login');
+            }}
+          >
+            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
+            <Text style={{ color: Colors.error, fontSize: 12, fontWeight: '700' }}>Cerrar sesión</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Búsqueda mejorada */}
@@ -125,7 +135,7 @@ export default function MisReservas() {
               No hay reservas registradas para este teléfono.
             </Text>
           </View>
-        ) : (
+        ) : reservas.length > 0 ? (
           <FlatList
             testID="reservas-list"
             data={reservas}
@@ -134,6 +144,14 @@ export default function MisReservas() {
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
           />
+        ) : (
+          <View style={styles.center}>
+            <Ionicons name="search-outline" size={64} color={Colors.border} />
+            <Text style={styles.emptyTitle}>Ingresa tu teléfono</Text>
+            <Text style={styles.emptyDesc}>
+              Busca por tu número para ver tu historial de reservas, o crea una nueva con el botón inferior.
+            </Text>
+          </View>
         )}
 
         <TouchableOpacity
@@ -165,13 +183,16 @@ const styles = StyleSheet.create({
   headerContent: { flex: 1 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.textPrimary },
   headerSubtitle: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
-  headerIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: Colors.primaryLighter,
+  headerIconLogOut: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.errorLight,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 12,
   },
   searchSection: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: Colors.background },
   searchBar: {
