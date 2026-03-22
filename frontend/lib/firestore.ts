@@ -1,4 +1,4 @@
-import { db } from './firebase';
+import { auth, db } from './firebase';
 import {
   collection,
   addDoc,
@@ -40,6 +40,12 @@ export interface EventoAsistencia {
 
 export type ReservaInput = Omit<Reserva, 'id' | 'estado' | 'fechaCreacion' | 'ultimaActualizacion' | 'motivoSolicitud'>;
 
+type DiagnosticWriteResult = {
+  ok: boolean;
+  id?: string;
+  error?: unknown;
+};
+
 export function normalizarTelefono(telefono: string): string {
   let t = String(telefono || '').trim();
   t = t.replace(/[\s\-()]/g, '');
@@ -53,6 +59,28 @@ export function normalizarTelefono(telefono: string): string {
   return t;
 }
 
+export async function probarEscrituraMinimaReserva(): Promise<DiagnosticWriteResult> {
+  console.log('MIN-1. Iniciando prueba mínima de escritura en reservas');
+  console.log('MIN-2. auth.currentUser:', auth.currentUser ? {
+    uid: auth.currentUser.uid,
+    email: auth.currentUser.email,
+  } : null);
+
+  try {
+    const docRef = await addDoc(collection(db, 'reservas'), {
+      test: 'funciona',
+      fecha: new Date(),
+    });
+    console.log('MIN-3. Escritura mínima exitosa. Documento:', docRef.id);
+    return { ok: true, id: docRef.id };
+  } catch (error: any) {
+    console.error('MIN-4. Error en prueba mínima:', error);
+    console.error('MIN-5. Error code:', error?.code);
+    console.error('MIN-6. Error message:', error?.message);
+    return { ok: false, error };
+  }
+}
+
 export async function crearReserva(data: ReservaInput): Promise<string> {
   const telefonoNormalizado = normalizarTelefono(data.telefono);
   const firestorePayload = {
@@ -62,24 +90,22 @@ export async function crearReserva(data: ReservaInput): Promise<string> {
     fechaCreacion: serverTimestamp(),
     ultimaActualizacion: serverTimestamp(),
   };
+  const undefinedFields = Object.entries(firestorePayload)
+    .filter(([, value]) => value === undefined)
+    .map(([key]) => key);
 
   console.log('A. crearReserva recibió data:', data);
   console.log('B. db existe?', !!db);
-  console.log('C. Payload final a Firestore:', {
-    ...data,
-    telefono: telefonoNormalizado,
-    estado: 'Agendada',
-  });
+  console.log('B.1 auth.currentUser:', auth.currentUser ? {
+    uid: auth.currentUser.uid,
+    email: auth.currentUser.email,
+  } : null);
+  console.log('C. Payload final a Firestore:', firestorePayload);
+  console.log('C.1 Campos undefined en payload:', undefinedFields);
   console.log('Antes de addDoc');
 
   try {
-    const firestorePromise = addDoc(collection(db, 'reservas'), {
-      ...data,
-      telefono: telefonoNormalizado,
-      estado: 'Agendada',
-      fechaCreacion: serverTimestamp(),
-      ultimaActualizacion: serverTimestamp(),
-    });
+    const firestorePromise = addDoc(collection(db, 'reservas'), firestorePayload);
 
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('TIMEOUT_FIRESTORE_ADD_DOC_10S')), 10000)
@@ -97,6 +123,13 @@ export async function crearReserva(data: ReservaInput): Promise<string> {
     console.error('crearReserva catch completo:', error);
     console.error('crearReserva catch message:', error?.message);
     console.error('crearReserva catch code:', error?.code);
+
+    if (error?.message === 'TIMEOUT_FIRESTORE_ADD_DOC_10S') {
+      console.log('H. Timeout detectado. Ejecutando prueba mínima de escritura...');
+      const diagnosticResult = await probarEscrituraMinimaReserva();
+      console.log('I. Resultado prueba mínima:', diagnosticResult);
+    }
+
     throw error;
   }
 }

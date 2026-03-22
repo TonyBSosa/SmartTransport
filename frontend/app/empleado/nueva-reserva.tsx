@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { useUser } from '../../context/UserContext';
+import { auth } from '../../lib/firebase';
 import {
   crearReserva,
   normalizarTelefono,
@@ -91,6 +92,10 @@ export default function NuevaReserva() {
 
 
   const handleSubmit = async () => {
+    console.log('1.1 auth.currentUser en handleSubmit:', auth.currentUser ? {
+      uid: auth.currentUser.uid,
+      email: auth.currentUser.email,
+    } : null);
     console.log('1. Entró a handleSubmit');
     console.log('2. Estado actual del formulario:', {
       nombre,
@@ -103,6 +108,7 @@ export default function NuevaReserva() {
       tipoTransporte,
       observaciones,
     });
+    console.log('2.1 Antes de construir payload');
 
     if (!nombre.trim()) {
       Alert.alert('Campo requerido', 'Por favor ingresa el nombre completo.');
@@ -151,10 +157,15 @@ export default function NuevaReserva() {
       tipoTransporte,
       observaciones: observaciones.trim(),
     };
+    const payloadUndefinedFields = Object.entries(payload)
+      .filter(([, value]) => value === undefined)
+      .map(([key]) => key);
 
     setSaving(true);
     try {
+      console.log('2.2 Campos undefined en payload:', payloadUndefinedFields);
       console.log('3. Payload final a crearReserva:', payload);
+      console.log('3.1 Llamando crearReserva...');
       const id = await crearReserva(payload);
       console.log('4. crearReserva devolvió id:', id);
       setTelefono(telefonoNormalizado);
