@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "seed:firestore": "tsx scripts/seedFirestore.ts",
+    "migrate:users": "tsx scripts/migrateUsersCollection.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

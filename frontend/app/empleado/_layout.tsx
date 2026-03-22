@@ -16,6 +16,10 @@ export default function EmpleadoLayout() {
         options={{ title: 'Mis Reservas' }}
       />
       <Stack.Screen
+        name="completar-perfil"
+        options={{ title: 'Completar Perfil' }}
+      />
+      <Stack.Screen
         name="nueva-reserva"
         options={{ title: 'Nueva Reserva' }}
       />

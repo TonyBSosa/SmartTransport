@@ -1,18 +1,38 @@
-import { app, auth, db } from './firebase';
 import {
-  collection,
   addDoc,
+  collection,
   doc,
-  updateDoc,
-  query,
-  where,
-  onSnapshot,
-  serverTimestamp,
   getDoc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
 } from 'firebase/firestore';
+import { auth, db } from './firebase';
+
+export type UserRole = 'empleado' | 'conductor';
+
+export interface UserRecord {
+  uid: string;
+  email: string;
+  rol: UserRole;
+}
+
+export interface UserProfile {
+  uid: string;
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  puntoReferencia: string;
+  zona: string;
+  perfilCompleto: boolean;
+}
 
 export interface Reserva {
   id?: string;
+  uid: string;
   nombre: string;
   telefono: string;
   direccion: string;
@@ -25,8 +45,8 @@ export interface Reserva {
   observaciones: string;
   estado: string;
   motivoSolicitud?: string;
-  fechaCreacion?: any;
-  ultimaActualizacion?: any;
+  fechaCreacion?: unknown;
+  ultimaActualizacion?: unknown;
 }
 
 export interface EventoAsistencia {
@@ -35,10 +55,18 @@ export interface EventoAsistencia {
   fecha: string;
   estadoAsistencia: string;
   registradoPor: string;
-  timestamp?: any;
+  timestamp?: unknown;
 }
 
-export type ReservaInput = Omit<Reserva, 'id' | 'estado' | 'fechaCreacion' | 'ultimaActualizacion' | 'motivoSolicitud'>;
+export type UserProfileInput = Omit<UserProfile, 'uid' | 'perfilCompleto'>;
+
+export type ReservaInput = Pick<
+  Reserva,
+  'diasSemana' | 'horarioEntrada' | 'horarioSalida' | 'tipoTransporte' | 'observaciones'
+> & {
+  uid: string;
+  profile: UserProfile;
+};
 
 type DiagnosticWriteResult = {
   ok: boolean;
@@ -53,7 +81,6 @@ type DiagnosticWriteResult = {
 type RuntimeIssueType = 'auth' | 'payload' | 'connection' | 'sdk-runtime' | 'unknown';
 
 type FirebaseRuntimeDiagnostics = {
-  appInitialized: boolean;
   dbInitialized: boolean;
   projectId: string | null;
   authUser: {
@@ -81,10 +108,12 @@ export type CrearReservaResult = {
 };
 
 function getCurrentUserInfo() {
-  return auth.currentUser ? {
-    uid: auth.currentUser.uid,
-    email: auth.currentUser.email,
-  } : null;
+  return auth.currentUser
+    ? {
+        uid: auth.currentUser.uid,
+        email: auth.currentUser.email,
+      }
+    : null;
 }
 
 function getFirebaseRuntimeDiagnostics(): FirebaseRuntimeDiagnostics {
@@ -96,21 +125,10 @@ function getFirebaseRuntimeDiagnostics(): FirebaseRuntimeDiagnostics {
       : null;
 
   return {
-    appInitialized: !!app,
     dbInitialized: !!db,
-    projectId: app?.options?.projectId ?? null,
+    projectId: db.app.options.projectId ?? null,
     authUser: getCurrentUserInfo(),
     navigatorOnline,
-  };
-}
-
-function buildReservaPayload(data: ReservaInput) {
-  return {
-    ...data,
-    telefono: normalizarTelefono(data.telefono),
-    estado: 'Agendada',
-    fechaCreacion: serverTimestamp(),
-    ultimaActualizacion: serverTimestamp(),
   };
 }
 
@@ -126,40 +144,61 @@ function getUndefinedAndNullFields(payload: Record<string, unknown>) {
     .map(([key]) => key);
 }
 
-function isPayloadObviouslyInvalid(payload: Record<string, unknown>) {
-  return getUndefinedAndNullFields(payload).length > 0;
-}
+function normalizeError(error: unknown) {
+  const typedError = error as { message?: string; code?: string };
 
-function normalizeError(error: any) {
   return {
-    message: error?.message || 'Error desconocido',
-    code: error?.code,
+    message: typedError?.message || 'Error desconocido',
+    code: typedError?.code,
     full: error,
   };
 }
 
 function classifyFailure(params: {
-  error: any;
+  error: unknown;
   firebase: FirebaseRuntimeDiagnostics;
   undefinedFields: string[];
   diagnosticWrite?: DiagnosticWriteResult;
 }): RuntimeIssueType {
   const { error, firebase, undefinedFields, diagnosticWrite } = params;
+  const typedError = error as { message?: string; code?: string } | undefined;
 
-  if (!firebase.appInitialized || !firebase.dbInitialized) return 'sdk-runtime';
+  if (!firebase.dbInitialized) return 'sdk-runtime';
   if (!firebase.authUser) return 'auth';
   if (undefinedFields.length > 0) return 'payload';
-  if (error?.message === 'TIMEOUT_FIRESTORE_ADD_DOC_10S') {
+  if (typedError?.message === 'TIMEOUT_FIRESTORE_ADD_DOC_10S') {
     return diagnosticWrite?.ok ? 'payload' : 'connection';
   }
-  if (error?.code) {
-    if (String(error.code).startsWith('auth/')) return 'auth';
-    if (String(error.code).startsWith('firestore/') || String(error.code).includes('unavailable')) {
+  if (typedError?.code) {
+    if (String(typedError.code).startsWith('auth/')) return 'auth';
+    if (
+      String(typedError.code).startsWith('firestore/') ||
+      String(typedError.code).includes('unavailable')
+    ) {
       return 'connection';
     }
   }
 
   return 'unknown';
+}
+
+function buildReservaPayload(data: ReservaInput) {
+  return {
+    uid: data.uid,
+    nombre: data.profile.nombre.trim(),
+    telefono: normalizarTelefono(data.profile.telefono),
+    direccion: data.profile.direccion.trim(),
+    puntoReferencia: data.profile.puntoReferencia.trim(),
+    zona: data.profile.zona.trim(),
+    diasSemana: data.diasSemana,
+    horarioEntrada: data.horarioEntrada.trim(),
+    horarioSalida: data.horarioSalida.trim(),
+    tipoTransporte: data.tipoTransporte.trim(),
+    observaciones: data.observaciones.trim(),
+    estado: 'Agendada',
+    fechaCreacion: serverTimestamp(),
+    ultimaActualizacion: serverTimestamp(),
+  };
 }
 
 async function addReservaDocWithTimeout(payload: Record<string, unknown>) {
@@ -185,7 +224,7 @@ async function retryAddReservaDoc(payload: Record<string, unknown>, attempts = 1
       };
     } catch (error) {
       lastError = error;
-      console.error(`[crearReserva] retry falló en intento ${attempt}:`, error);
+      console.error(`[crearReserva] retry fallo en intento ${attempt}:`, error);
     }
   }
 
@@ -196,16 +235,62 @@ async function retryAddReservaDoc(payload: Record<string, unknown>, attempts = 1
 }
 
 export function normalizarTelefono(telefono: string): string {
-  let t = String(telefono || '').trim();
-  t = t.replace(/[\s\-()]/g, '');
+  let value = String(telefono || '').trim();
+  value = value.replace(/[\s\-()]/g, '');
 
-  if (t.startsWith('+504')) {
-    t = t.slice(4);
-  } else if (t.startsWith('504') && t.length > 8) {
-    t = t.slice(3);
+  if (value.startsWith('+504')) {
+    value = value.slice(4);
+  } else if (value.startsWith('504') && value.length > 8) {
+    value = value.slice(3);
   }
 
-  return t;
+  return value;
+}
+
+export function isPerfilCompleto(profile: UserProfile | null): profile is UserProfile {
+  return Boolean(
+    profile?.perfilCompleto &&
+      profile.nombre?.trim() &&
+      profile.telefono?.trim() &&
+      profile.direccion?.trim() &&
+      profile.puntoReferencia?.trim() &&
+      profile.zona?.trim()
+  );
+}
+
+export async function obtenerUserRecord(uid: string): Promise<UserRecord | null> {
+  const snapshot = await getDoc(doc(db, 'users', uid));
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return snapshot.data() as UserRecord;
+}
+
+export async function obtenerPerfil(uid: string): Promise<UserProfile | null> {
+  const snapshot = await getDoc(doc(db, 'perfiles', uid));
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return snapshot.data() as UserProfile;
+}
+
+export async function guardarPerfil(uid: string, data: UserProfileInput): Promise<void> {
+  const payload: UserProfile = {
+    uid,
+    nombre: data.nombre.trim(),
+    telefono: normalizarTelefono(data.telefono),
+    direccion: data.direccion.trim(),
+    puntoReferencia: data.puntoReferencia.trim(),
+    zona: data.zona.trim(),
+    perfilCompleto: true,
+  };
+
+  console.log('[guardarPerfil] guardando perfil para uid:', uid);
+  await setDoc(doc(db, 'perfiles', uid), payload, { merge: true });
 }
 
 export async function probarEscrituraMinimaReserva(): Promise<DiagnosticWriteResult> {
@@ -220,11 +305,9 @@ export async function probarEscrituraMinimaReserva(): Promise<DiagnosticWriteRes
 
     console.log('[crearReserva:min] escritura exitosa:', docRef.id);
     return { ok: true, id: docRef.id };
-  } catch (error: any) {
+  } catch (error) {
     const normalizedError = normalizeError(error);
-    console.error('[crearReserva:min] error completo:', normalizedError.full);
-    console.error('[crearReserva:min] error.code:', normalizedError.code);
-    console.error('[crearReserva:min] error.message:', normalizedError.message);
+    console.error('[crearReserva:min] error:', normalizedError);
     return { ok: false, error: normalizedError };
   }
 }
@@ -237,16 +320,14 @@ export async function crearReserva(data: ReservaInput): Promise<CrearReservaResu
 
   console.log('[crearReserva] inicio');
   console.log('[crearReserva] firebase:', firebase);
-  console.log('[crearReserva] payload original:', originalPayload);
-  console.log('[crearReserva] payload limpio:', cleanedPayload);
-  console.log('[crearReserva] campos undefined/null:', undefinedFields);
+  console.log('[crearReserva] payload:', cleanedPayload);
 
-  if (!firebase.appInitialized || !firebase.dbInitialized) {
+  if (!firebase.dbInitialized) {
     return {
       success: false,
       error: {
         type: 'sdk-runtime',
-        message: 'Firebase app o Firestore db no están inicializados correctamente',
+        message: 'Firestore no esta inicializado correctamente.',
         firebase,
         undefinedFields,
       },
@@ -254,25 +335,23 @@ export async function crearReserva(data: ReservaInput): Promise<CrearReservaResu
   }
 
   if (!firebase.authUser) {
-    console.warn('[crearReserva] auth.currentUser es null');
     return {
       success: false,
       error: {
         type: 'auth',
-        message: 'auth.currentUser es null en runtime',
+        message: 'No hay un usuario autenticado para guardar la reserva.',
         firebase,
         undefinedFields,
       },
     };
   }
 
-  if (isPayloadObviouslyInvalid(originalPayload)) {
-    console.warn('[crearReserva] payload inválido por campos undefined/null');
+  if (undefinedFields.length > 0) {
     return {
       success: false,
       error: {
         type: 'payload',
-        message: 'El payload contiene campos undefined o null',
+        message: 'La reserva contiene campos faltantes.',
         firebase,
         undefinedFields,
       },
@@ -280,34 +359,27 @@ export async function crearReserva(data: ReservaInput): Promise<CrearReservaResu
   }
 
   try {
-    console.log('[crearReserva] antes de addDoc');
     const docRef = await addReservaDocWithTimeout(cleanedPayload);
-    console.log('[crearReserva] después de addDoc');
     console.log('[crearReserva] documento creado:', docRef.id);
 
     return {
       success: true,
       docId: docRef.id,
     };
-  } catch (error: any) {
+  } catch (error) {
     const normalizedError = normalizeError(error);
-    console.error('[crearReserva] error completo:', normalizedError.full);
-    console.error('[crearReserva] error.code:', normalizedError.code);
-    console.error('[crearReserva] error.message:', normalizedError.message);
-
     const timeoutTriggered = normalizedError.message === 'TIMEOUT_FIRESTORE_ADD_DOC_10S';
     let diagnosticWrite: DiagnosticWriteResult | undefined;
     let retryAttempted = false;
     let retrySucceeded = false;
 
     if (timeoutTriggered) {
-      console.log('[crearReserva] timeout detectado, ejecutando prueba mínima...');
       diagnosticWrite = await probarEscrituraMinimaReserva();
-      console.log('[crearReserva] resultado prueba mínima:', diagnosticWrite);
     }
 
     retryAttempted = true;
     const retryResult = await retryAddReservaDoc(cleanedPayload, 1);
+
     if (retryResult.success) {
       retrySucceeded = true;
       return {
@@ -316,17 +388,15 @@ export async function crearReserva(data: ReservaInput): Promise<CrearReservaResu
       };
     }
 
-    const classifiedType = classifyFailure({
-      error: normalizedError.full,
-      firebase,
-      undefinedFields,
-      diagnosticWrite,
-    });
-
     return {
       success: false,
       error: {
-        type: classifiedType,
+        type: classifyFailure({
+          error: normalizedError.full,
+          firebase,
+          undefinedFields,
+          diagnosticWrite,
+        }),
         message: normalizedError.message,
         code: normalizedError.code,
         full: normalizedError.full,
@@ -341,34 +411,25 @@ export async function crearReserva(data: ReservaInput): Promise<CrearReservaResu
   }
 }
 
-export function escucharReservasPorTelefono(
-  telefono: string,
+export function escucharReservasPorUid(
+  uid: string,
   callback: (reservas: Reserva[]) => void
 ): () => void {
-  const telefonoNormalizado = normalizarTelefono(telefono);
-  const q = query(
-    collection(db, 'reservas'),
-    where('telefono', '==', telefonoNormalizado)
-  );
+  const reservationsQuery = query(collection(db, 'reservas'), where('uid', '==', uid));
+
   return onSnapshot(
-    q,
+    reservationsQuery,
     (snapshot) => {
-      const reservas = snapshot.docs.map(
-        (d) => ({ id: d.id, ...d.data() } as Reserva)
-      );
+      const reservas = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Reserva);
       reservas.sort((a, b) => {
-        const dateA = a.fechaCreacion?.toMillis?.() || 0;
-        const dateB = b.fechaCreacion?.toMillis?.() || 0;
+        const dateA = (a.fechaCreacion as { toMillis?: () => number } | undefined)?.toMillis?.() || 0;
+        const dateB = (b.fechaCreacion as { toMillis?: () => number } | undefined)?.toMillis?.() || 0;
         return dateB - dateA;
       });
       callback(reservas);
     },
     (error) => {
-      console.error('Error escuchando reservas por telefono:', {
-        telefonoOriginal: telefono,
-        telefonoNormalizado,
-        error,
-      });
+      console.error('Error escuchando reservas por uid:', { uid, error });
       callback([]);
     }
   );
@@ -378,35 +439,32 @@ export function escucharReservasPorDia(
   diaSemana: string,
   callback: (reservas: Reserva[]) => void
 ): () => void {
-  const q = query(
+  const reservationsQuery = query(
     collection(db, 'reservas'),
     where('diasSemana', 'array-contains', diaSemana)
   );
+
   return onSnapshot(
-    q,
+    reservationsQuery,
     (snapshot) => {
-      const reservas = snapshot.docs.map(
-        (d) => ({ id: d.id, ...d.data() } as Reserva)
-      );
+      const reservas = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Reserva);
       callback(reservas);
     },
     (error) => {
-      console.error('Error escuchando reservas por dia:', {
-        diaSemana,
-        error,
-      });
+      console.error('Error escuchando reservas por dia:', { diaSemana, error });
       callback([]);
     }
   );
 }
 
 export async function obtenerReserva(reservaId: string): Promise<Reserva | null> {
-  const docRef = doc(db, 'reservas', reservaId);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as Reserva;
+  const snapshot = await getDoc(doc(db, 'reservas', reservaId));
+
+  if (!snapshot.exists()) {
+    return null;
   }
-  return null;
+
+  return { id: snapshot.id, ...snapshot.data() } as Reserva;
 }
 
 export async function actualizarEstadoReserva(
@@ -414,15 +472,16 @@ export async function actualizarEstadoReserva(
   estado: string,
   motivoSolicitud?: string
 ): Promise<void> {
-  const docRef = doc(db, 'reservas', reservaId);
-  const updateData: Record<string, any> = {
+  const payload: Record<string, unknown> = {
     estado,
     ultimaActualizacion: serverTimestamp(),
   };
+
   if (motivoSolicitud !== undefined) {
-    updateData.motivoSolicitud = motivoSolicitud;
+    payload.motivoSolicitud = motivoSolicitud;
   }
-  await updateDoc(docRef, updateData);
+
+  await updateDoc(doc(db, 'reservas', reservaId), payload);
 }
 
 export async function crearEventoAsistencia(
@@ -432,6 +491,7 @@ export async function crearEventoAsistencia(
     ...data,
     timestamp: serverTimestamp(),
   });
+
   await actualizarEstadoReserva(data.reservaId, data.estadoAsistencia);
   return docRef.id;
 }
@@ -458,9 +518,12 @@ export function getFechaHoy(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-export function formatTimestamp(ts: any): string {
-  if (!ts) return '';
-  const date = ts.toDate ? ts.toDate() : new Date(ts);
+export function formatTimestamp(timestamp: unknown): string {
+  if (!timestamp) return '';
+
+  const typedTimestamp = timestamp as { toDate?: () => Date };
+  const date = typedTimestamp.toDate ? typedTimestamp.toDate() : new Date(timestamp as string);
+
   return date.toLocaleDateString('es-ES', {
     day: '2-digit',
     month: 'short',

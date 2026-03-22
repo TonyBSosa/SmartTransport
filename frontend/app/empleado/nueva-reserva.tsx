@@ -1,29 +1,23 @@
 import React, { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  SafeAreaView,
-  Alert,
-  KeyboardAvoidingView,
+  View,
   Platform,
-  ActivityIndicator,
-  Modal,
+  Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { useUser } from '../../context/UserContext';
-import { auth } from '../../lib/firebase';
-import {
-  crearReserva,
-  normalizarTelefono,
-  ZONAS,
-  TIPOS_TRANSPORTE,
-} from '../../lib/firestore';
+import { crearReserva, TIPOS_TRANSPORTE } from '../../lib/firestore';
 
 const DIAS = [
   { key: 'Lunes', short: 'Lun' },
@@ -37,13 +31,7 @@ const DIAS = [
 
 export default function NuevaReserva() {
   const router = useRouter();
-  const { telefono: storedTel, setTelefono } = useUser();
-
-  const [nombre, setNombre] = useState('');
-  const [telefono, setTelefonoLocal] = useState(storedTel);
-  const [direccion, setDireccion] = useState('');
-  const [puntoReferencia, setPuntoRef] = useState('');
-  const [zona, setZona] = useState('');
+  const { authError, authUser, hasCompleteProfile, isAuthenticated, isBootstrapping, profile, role } = useUser();
   const [diasSemana, setDiasSemana] = useState<string[]>([]);
   const [horarioEntrada, setHorarioEntrada] = useState('');
   const [horarioSalida, setHorarioSalida] = useState('');
@@ -57,16 +45,12 @@ export default function NuevaReserva() {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const toggleDia = (dia: string) => {
-    setDiasSemana((prev) =>
-      prev.includes(dia) ? prev.filter((current) => current !== dia) : [...prev, dia]
+    setDiasSemana((current) =>
+      current.includes(dia) ? current.filter((item) => item !== dia) : [...current, dia]
     );
   };
 
   const resetForm = () => {
-    setNombre('');
-    setDireccion('');
-    setPuntoRef('');
-    setZona('');
     setDiasSemana([]);
     setHorarioEntrada('');
     setHorarioSalida('');
@@ -94,113 +78,96 @@ export default function NuevaReserva() {
 
   const confirmPicker = () => {
     const value = `${pickerH}:${pickerM} ${pickerA}`;
+
     if (pickerType === 'entrada') {
       setHorarioEntrada(value);
     }
+
     if (pickerType === 'salida') {
       setHorarioSalida(value);
     }
+
     setPickerType(null);
   };
 
   const handleSubmit = async () => {
-    console.log('1. Entró a handleSubmit');
-    console.log(
-      '1.1 auth.currentUser en handleSubmit:',
-      auth.currentUser
-        ? {
-            uid: auth.currentUser.uid,
-            email: auth.currentUser.email,
-          }
-        : null
-    );
-    console.log('2. Estado actual del formulario:', {
-      nombre,
-      telefono,
-      direccion,
-      zona,
-      diasSemana,
-      horarioEntrada,
-      horarioSalida,
-      tipoTransporte,
-      observaciones,
-    });
-    console.log('2.1 Antes de construir payload');
+    if (!authUser?.uid || !profile || !hasCompleteProfile) {
+      Alert.alert(
+        'Perfil incompleto',
+        'Completa tu perfil antes de realizar una reserva.'
+      );
+      router.replace('/empleado/completar-perfil');
+      return;
+    }
 
-    if (!nombre.trim()) {
-      Alert.alert('Campo requerido', 'Por favor ingresa el nombre completo.');
-      return;
-    }
-    if (!telefono.trim()) {
-      Alert.alert('Campo requerido', 'Por favor ingresa el teléfono.');
-      return;
-    }
-    if (!direccion.trim()) {
-      Alert.alert('Campo requerido', 'Por favor ingresa la dirección.');
-      return;
-    }
-    if (!zona) {
-      Alert.alert('Campo requerido', 'Por favor selecciona una zona.');
-      return;
-    }
     if (diasSemana.length === 0) {
-      Alert.alert('Campo requerido', 'Por favor selecciona al menos un día de la semana.');
-      return;
-    }
-    if (!horarioEntrada.trim()) {
-      Alert.alert('Campo requerido', 'Por favor ingresa el horario de entrada.');
-      return;
-    }
-    if (!horarioSalida.trim()) {
-      Alert.alert('Campo requerido', 'Por favor ingresa el horario de salida.');
-      return;
-    }
-    if (!tipoTransporte) {
-      Alert.alert('Campo requerido', 'Por favor selecciona el tipo de transporte.');
+      Alert.alert('Campo requerido', 'Selecciona al menos un día de la semana.');
       return;
     }
 
-    const telefonoNormalizado = normalizarTelefono(telefono);
-    const payload = {
-      nombre: nombre.trim(),
-      telefono: telefonoNormalizado,
-      direccion: direccion.trim(),
-      puntoReferencia: puntoReferencia.trim(),
-      zona,
-      diasSemana,
-      horarioEntrada,
-      horarioSalida,
-      tipoTransporte,
-      observaciones: observaciones.trim(),
-    };
-    const payloadUndefinedFields = Object.entries(payload)
-      .filter(([, value]) => value === undefined)
-      .map(([key]) => key);
+    if (!horarioEntrada.trim()) {
+      Alert.alert('Campo requerido', 'Selecciona el horario de entrada.');
+      return;
+    }
+
+    if (!horarioSalida.trim()) {
+      Alert.alert('Campo requerido', 'Selecciona el horario de salida.');
+      return;
+    }
+
+    if (!tipoTransporte) {
+      Alert.alert('Campo requerido', 'Selecciona el tipo de transporte.');
+      return;
+    }
 
     setSaving(true);
-    try {
-      console.log('2.2 Campos undefined en payload:', payloadUndefinedFields);
-      console.log('3. Payload final a crearReserva:', payload);
-      console.log('3.1 Llamando crearReserva...');
 
-      const result = await crearReserva(payload);
-      console.log('4. crearReserva devolvió resultado:', result);
+    try {
+      const result = await crearReserva({
+        uid: authUser.uid,
+        profile,
+        diasSemana,
+        horarioEntrada,
+        horarioSalida,
+        tipoTransporte,
+        observaciones,
+      });
 
       if (!result.success) {
-        throw result.error?.full ?? new Error(result.error?.message || 'No se pudo crear la reserva');
+        throw new Error(result.error?.message || 'No se pudo guardar la reserva.');
       }
 
-      setTelefono(telefonoNormalizado);
+      console.log('[NuevaReserva] reserva creada:', result.docId);
       setShowSuccess(true);
     } catch (error: any) {
-      console.error('5. Error en handleSubmit:', error);
-      console.error('6. Error code:', error?.code);
-      console.error('7. Error message:', error?.message);
-      Alert.alert('Error real', `${error?.code || 'sin-codigo'} - ${error?.message || 'sin mensaje'}`);
+      console.error('[NuevaReserva] error guardando reserva:', error);
+      Alert.alert('Error', error?.message || 'No se pudo guardar la reserva.');
     } finally {
       setSaving(false);
     }
   };
+
+  if (isBootstrapping) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.modalOverlay}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
+
+  if (authError || role !== 'empleado') {
+    return <Redirect href="/" />;
+  }
+
+  if (!hasCompleteProfile) {
+    return <Redirect href="/empleado/completar-perfil" />;
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -214,75 +181,24 @@ export default function NuevaReserva() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.sectionTitle}>Información personal</Text>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Nombre completo *</Text>
-            <TextInput
-              testID="input-nombre"
-              style={styles.input}
-              placeholder="Ej. Juan Pérez"
-              placeholderTextColor={Colors.textSecondary}
-              value={nombre}
-              onChangeText={setNombre}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Teléfono *</Text>
-            <TextInput
-              testID="input-telefono"
-              style={styles.input}
-              placeholder="Ej. 5512345678"
-              placeholderTextColor={Colors.textSecondary}
-              keyboardType="phone-pad"
-              value={telefono}
-              onChangeText={setTelefonoLocal}
-            />
-          </View>
-
-          <Text style={styles.sectionTitle}>Ubicación</Text>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Dirección *</Text>
-            <TextInput
-              testID="input-direccion"
-              style={styles.input}
-              placeholder="Calle, número, colonia"
-              placeholderTextColor={Colors.textSecondary}
-              value={direccion}
-              onChangeText={setDireccion}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Punto de referencia</Text>
-            <TextInput
-              testID="input-punto-ref"
-              style={styles.input}
-              placeholder="Ej. Frente al parque"
-              placeholderTextColor={Colors.textSecondary}
-              value={puntoReferencia}
-              onChangeText={setPuntoRef}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Zona *</Text>
-            <View style={styles.chipRow}>
-              {ZONAS.map((item) => (
-                <TouchableOpacity
-                  testID={`zona-${item}`}
-                  key={item}
-                  style={[styles.chip, zona === item && styles.chipActive]}
-                  onPress={() => setZona(item)}
-                >
-                  <Text style={[styles.chipText, zona === item && styles.chipTextActive]}>
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          <View style={styles.profileCard}>
+            <Text style={styles.sectionTitle}>Datos del perfil</Text>
+            <Text style={styles.helperText}>
+              Estos datos se usarán automáticamente en la reserva.
+            </Text>
+            <View style={styles.summaryBox}>
+              <Text style={styles.summaryLine}>{profile?.nombre}</Text>
+              <Text style={styles.summaryLine}>{profile?.telefono}</Text>
+              <Text style={styles.summaryLine}>{profile?.direccion}</Text>
+              <Text style={styles.summaryLine}>{profile?.puntoReferencia}</Text>
+              <Text style={styles.summaryLine}>{profile?.zona}</Text>
             </View>
+            <TouchableOpacity
+              style={styles.editProfileButton}
+              onPress={() => router.push('/empleado/completar-perfil')}
+            >
+              <Text style={styles.editProfileText}>Editar perfil</Text>
+            </TouchableOpacity>
           </View>
 
           <Text style={styles.sectionTitle}>Horario</Text>
@@ -311,8 +227,8 @@ export default function NuevaReserva() {
           </View>
 
           <View style={styles.row}>
-            <View style={[styles.field, styles.flex]}>
-              <Text style={styles.label}>Hora de Entrada *</Text>
+            <View style={styles.rowField}>
+              <Text style={styles.label}>Hora de entrada *</Text>
               <TouchableOpacity
                 testID="input-hora-entrada"
                 style={styles.input}
@@ -325,10 +241,10 @@ export default function NuevaReserva() {
               </TouchableOpacity>
             </View>
 
-            <View style={{ width: 12 }} />
+            <View style={styles.gap} />
 
-            <View style={[styles.field, styles.flex]}>
-              <Text style={styles.label}>Hora de Salida *</Text>
+            <View style={styles.rowField}>
+              <Text style={styles.label}>Hora de salida *</Text>
               <TouchableOpacity
                 testID="input-hora-salida"
                 style={styles.input}
@@ -349,14 +265,13 @@ export default function NuevaReserva() {
                 <TouchableOpacity
                   testID={`tipo-${item}`}
                   key={item}
-                  style={[styles.chip, tipoTransporte === item && styles.chipActive, { flex: 1 }]}
+                  style={[styles.chip, tipoTransporte === item && styles.chipActive, styles.typeChip]}
                   onPress={() => setTipoTransporte(item)}
                 >
                   <Text
                     style={[
                       styles.chipText,
                       tipoTransporte === item && styles.chipTextActive,
-                      { textAlign: 'center' },
                     ]}
                   >
                     {item}
@@ -365,8 +280,6 @@ export default function NuevaReserva() {
               ))}
             </View>
           </View>
-
-          <Text style={styles.sectionTitle}>Adicional</Text>
 
           <View style={styles.field}>
             <Text style={styles.label}>Observaciones</Text>
@@ -394,12 +307,12 @@ export default function NuevaReserva() {
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={20} color={Colors.primaryForeground} />
-                <Text style={styles.submitBtnText}>Crear Reserva</Text>
+                <Text style={styles.submitBtnText}>Crear reserva</Text>
               </>
             )}
           </TouchableOpacity>
 
-          <View style={{ height: 40 }} />
+          <View style={styles.bottomSpace} />
         </ScrollView>
 
         <Modal
@@ -408,24 +321,14 @@ export default function NuevaReserva() {
           animationType="fade"
           onRequestClose={() => setPickerType(null)}
         >
-          <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 20 }]}>
-            <View style={[styles.modalCard, { borderRadius: 24 }]}>
-              <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 20 }]}>
-                {pickerType === 'entrada' ? 'Hora de Entrada' : 'Hora de Salida'}
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>
+                {pickerType === 'entrada' ? 'Hora de entrada' : 'Hora de salida'}
               </Text>
 
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  height: 200,
-                  marginBottom: 20,
-                  backgroundColor: Colors.background,
-                  borderRadius: 16,
-                  padding: 10,
-                }}
-              >
-                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+              <View style={styles.pickerContainer}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.pickerColumn}>
                   {Array.from({ length: 12 }, (_, index) =>
                     String(index + 1).padStart(2, '0')
                   ).map((hour) => (
@@ -433,14 +336,14 @@ export default function NuevaReserva() {
                       key={hour}
                       style={[
                         styles.pickerItem,
-                        pickerH === hour && { backgroundColor: Colors.primaryLight },
+                        pickerH === hour && styles.pickerItemActive,
                       ]}
                       onPress={() => setPickerH(hour)}
                     >
                       <Text
                         style={[
                           styles.pickerItemText,
-                          pickerH === hour && { color: Colors.primary, fontWeight: '700' },
+                          pickerH === hour && styles.pickerItemTextActive,
                         ]}
                       >
                         {hour}
@@ -449,33 +352,23 @@ export default function NuevaReserva() {
                   ))}
                 </ScrollView>
 
-                <Text
-                  style={{
-                    fontSize: 24,
-                    fontWeight: 'bold',
-                    color: Colors.textSecondary,
-                    alignSelf: 'center',
-                    marginHorizontal: 8,
-                  }}
-                >
-                  :
-                </Text>
+                <Text style={styles.pickerSeparator}>:</Text>
 
-                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.pickerColumn}>
                   {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(
                     (minute) => (
                       <TouchableOpacity
                         key={minute}
                         style={[
                           styles.pickerItem,
-                          pickerM === minute && { backgroundColor: Colors.primaryLight },
+                          pickerM === minute && styles.pickerItemActive,
                         ]}
                         onPress={() => setPickerM(minute)}
                       >
                         <Text
                           style={[
                             styles.pickerItemText,
-                            pickerM === minute && { color: Colors.primary, fontWeight: '700' },
+                            pickerM === minute && styles.pickerItemTextActive,
                           ]}
                         >
                           {minute}
@@ -485,22 +378,20 @@ export default function NuevaReserva() {
                   )}
                 </ScrollView>
 
-                <View style={{ width: 8 }} />
-
-                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.pickerColumn}>
                   {['AM', 'PM'].map((ampm) => (
                     <TouchableOpacity
                       key={ampm}
                       style={[
                         styles.pickerItem,
-                        pickerA === ampm && { backgroundColor: Colors.primaryLight },
+                        pickerA === ampm && styles.pickerItemActive,
                       ]}
                       onPress={() => setPickerA(ampm)}
                     >
                       <Text
                         style={[
                           styles.pickerItemText,
-                          pickerA === ampm && { color: Colors.primary, fontWeight: '700' },
+                          pickerA === ampm && styles.pickerItemTextActive,
                         ]}
                       >
                         {ampm}
@@ -510,20 +401,12 @@ export default function NuevaReserva() {
                 </ScrollView>
               </View>
 
-              <TouchableOpacity
-                style={[styles.submitBtn, { marginTop: 0 }]}
-                activeOpacity={0.8}
-                onPress={confirmPicker}
-              >
+              <TouchableOpacity style={styles.submitBtn} onPress={confirmPicker}>
                 <Ionicons name="checkmark" size={20} color={Colors.primaryForeground} />
                 <Text style={styles.submitBtnText}>Aceptar</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                activeOpacity={0.8}
-                onPress={() => setPickerType(null)}
-              >
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setPickerType(null)}>
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
             </View>
@@ -536,36 +419,18 @@ export default function NuevaReserva() {
           animationType="fade"
           onRequestClose={() => setShowSuccess(false)}
         >
-          <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 20 }]}>
-            <View style={[styles.modalCard, { borderRadius: 24 }]}>
-              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.successIconWrap}>
                 <Ionicons name="checkmark-circle" size={60} color={Colors.primary} />
               </View>
 
-              <Text
-                style={[
-                  styles.modalTitle,
-                  { textAlign: 'center', fontSize: 22, color: Colors.textPrimary },
-                ]}
-              >
-                Reserva guardada
-              </Text>
+              <Text style={styles.successTitle}>Reserva guardada</Text>
+              <Text style={styles.successText}>Tu reserva se registró correctamente.</Text>
 
-              <Text
-                style={{
-                  textAlign: 'center',
-                  color: Colors.textSecondary,
-                  fontSize: 16,
-                  marginBottom: 24,
-                }}
-              >
-                Tu reserva se registró correctamente.
-              </Text>
-
-              <View style={{ gap: 12 }}>
+              <View style={styles.successActions}>
                 <TouchableOpacity
-                  style={[styles.submitBtn, { marginTop: 0 }]}
-                  activeOpacity={0.8}
+                  style={styles.submitBtn}
                   onPress={() => {
                     setShowSuccess(false);
                     resetForm();
@@ -576,14 +441,12 @@ export default function NuevaReserva() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.modalCancelBtn, { flexDirection: 'row', gap: 8, marginTop: 0 }]}
-                  activeOpacity={0.8}
+                  style={styles.modalCancelBtn}
                   onPress={() => {
                     setShowSuccess(false);
                     router.back();
                   }}
                 >
-                  <Ionicons name="arrow-back-outline" size={20} color={Colors.textSecondary} />
                   <Text style={styles.modalCancelText}>Volver al inicio</Text>
                 </TouchableOpacity>
               </View>
@@ -600,15 +463,40 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 16, paddingVertical: 20 },
+  profileCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+  },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginBottom: 14,
-    marginTop: 20,
+    marginBottom: 10,
+    marginTop: 4,
   },
+  helperText: { fontSize: 14, color: Colors.textSecondary, marginBottom: 12 },
+  summaryBox: {
+    backgroundColor: Colors.background,
+    borderRadius: 14,
+    padding: 14,
+    gap: 6,
+  },
+  summaryLine: { fontSize: 14, color: Colors.textPrimary },
+  editProfileButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.primaryLight,
+  },
+  editProfileText: { color: Colors.primary, fontWeight: '700' },
   field: { marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginBottom: 8 },
   input: {
@@ -620,24 +508,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: Colors.textPrimary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
+  inputText: { fontSize: 16, fontWeight: '500', color: Colors.textPrimary, paddingVertical: 4 },
+  inputPlaceholder: { fontSize: 16, color: Colors.textMuted, paddingVertical: 4 },
   textArea: { height: 96, textAlignVertical: 'top' },
-  inputText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: Colors.textPrimary,
-    paddingVertical: 4,
-  },
-  inputPlaceholder: {
-    fontSize: 16,
-    color: Colors.textMuted,
-    paddingVertical: 4,
-  },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
     paddingHorizontal: 16,
@@ -647,14 +521,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.divider,
   },
-  chipActive: {
-    backgroundColor: Colors.primaryLight,
-    borderColor: Colors.primary,
-  },
+  typeChip: { flex: 1 },
+  chipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   chipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'center' },
   chipTextActive: { color: Colors.primary, fontWeight: '700' },
   row: { flexDirection: 'row' },
-  flexField: { flex: 1 },
+  rowField: { flex: 1 },
+  gap: { width: 12 },
   submitBtn: {
     flexDirection: 'row',
     backgroundColor: Colors.primary,
@@ -664,36 +537,53 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 20,
     gap: 10,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
   },
   submitBtnDisabled: { opacity: 0.7 },
-  submitBtnText: {
-    color: Colors.primaryForeground,
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  submitBtnText: { color: Colors.primaryForeground, fontSize: 16, fontWeight: '700' },
+  bottomSpace: { height: 40 },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-    paddingBottom: 0,
+    justifyContent: 'center',
+    padding: 20,
   },
   modalCard: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
     padding: 20,
-    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    height: 200,
+    marginBottom: 20,
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    padding: 10,
+  },
+  pickerColumn: { flex: 1 },
+  pickerItem: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginVertical: 4,
+  },
+  pickerItemActive: { backgroundColor: Colors.primaryLight },
+  pickerItemText: { fontSize: 17, color: Colors.textSecondary, fontWeight: '500' },
+  pickerItemTextActive: { color: Colors.primary, fontWeight: '700' },
+  pickerSeparator: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.textSecondary,
+    alignSelf: 'center',
+    marginHorizontal: 8,
   },
   modalCancelBtn: {
     marginTop: 16,
@@ -701,24 +591,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: Colors.divider,
   },
-  modalCancelText: {
-    color: Colors.textPrimary,
-    fontSize: 16,
+  modalCancelText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
+  successIconWrap: { alignItems: 'center', marginBottom: 20 },
+  successTitle: {
+    textAlign: 'center',
+    fontSize: 22,
     fontWeight: '700',
+    color: Colors.textPrimary,
   },
-  pickerItem: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderRadius: 8,
-    marginVertical: 4,
-  },
-  pickerItemText: {
-    fontSize: 17,
+  successText: {
+    textAlign: 'center',
     color: Colors.textSecondary,
-    fontWeight: '500',
+    fontSize: 16,
+    marginTop: 8,
+    marginBottom: 24,
   },
+  successActions: { gap: 12 },
 });

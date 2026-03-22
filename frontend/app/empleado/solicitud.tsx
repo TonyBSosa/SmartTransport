@@ -212,7 +212,7 @@ export default function SolicitudScreen() {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle" size={24} color={Colors.primary} />
             <Text style={styles.infoText}>
-              Esta reserva tiene estado "{reserva.estado}" y no puede ser modificada en este momento.
+              Esta reserva tiene estado &quot;{reserva.estado}&quot; y no puede ser modificada en este momento.
             </Text>
           </View>
         )}

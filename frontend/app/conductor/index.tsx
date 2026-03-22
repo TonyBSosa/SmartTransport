@@ -20,8 +20,11 @@ import {
   DIAS_SEMANA,
   ZONAS,
 } from '../../lib/firestore';
+import { useUser } from '../../context/UserContext';
+import { Redirect } from 'expo-router';
 
 export default function ConductorDashboard() {
+  const { authError, isAuthenticated, isBootstrapping, role } = useUser();
   const [diaSeleccionado, setDiaSeleccionado] = useState(getDiaSemanaHoy());
   const [zonaFiltro, setZonaFiltro] = useState<string | null>(null);
   const [reservas, setReservas] = useState<Reserva[]>([]);
@@ -144,6 +147,24 @@ export default function ConductorDashboard() {
     Viernes: 'Vie',
     Sábado: 'Sáb',
   };
+
+  if (isBootstrapping) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
+
+  if (authError || role !== 'conductor') {
+    return <Redirect href="/" />;
+  }
 
   return (
     <SafeAreaView style={styles.safe}>

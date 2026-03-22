@@ -1,16 +1,24 @@
-import React, { useState, useRef } from 'react';
-import { Text, TextInput, TouchableOpacity, View, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { useUser } from '../context/UserContext';
-import { Colors } from '../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bus, Shield, Eye, EyeOff } from 'lucide-react-native';
+import { Bus, Eye, EyeOff, Shield } from 'lucide-react-native';
+import { Colors } from '../constants/Colors';
+import { useUser } from '../context/UserContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const { login, isAuthenticated } = useUser();
   const router = useRouter();
+  const { isAuthenticated, isBootstrapping, login } = useUser();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,17 +27,17 @@ export default function LoginScreen() {
   const passwordInputRef = useRef<TextInput>(null);
 
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (!isBootstrapping && isAuthenticated) {
       router.replace('/');
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isBootstrapping, router]);
 
   const handleLogin = async () => {
-    // Validar campos vacíos
     if (!email.trim()) {
       setError('Por favor ingresa tu correo electrónico');
       return;
     }
+
     if (!password.trim()) {
       setError('Por favor ingresa tu contraseña');
       return;
@@ -37,11 +45,11 @@ export default function LoginScreen() {
 
     setError('');
     setLoading(true);
+
     try {
       await login(email, password);
-      router.replace('/');
-    } catch (err: any) {
-      setError(err.message ?? 'Error al iniciar sesión');
+    } catch (loginError: any) {
+      setError(loginError.message ?? 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }
@@ -52,6 +60,7 @@ export default function LoginScreen() {
       setError('Por favor ingresa tu correo electrónico');
       return;
     }
+
     setError('');
     passwordInputRef.current?.focus();
   };
@@ -64,13 +73,11 @@ export default function LoginScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        {/* Decorative circles */}
         <View style={styles.circle1} />
         <View style={styles.circle2} />
         <View style={styles.circle3} />
 
         <View style={styles.content}>
-          {/* Logo section */}
           <View style={styles.logoContainer}>
             <View style={styles.logoBackground}>
               <Bus size={32} color="#fff" />
@@ -79,7 +86,6 @@ export default function LoginScreen() {
             <Text style={styles.appSubtitle}>Tu transporte inteligente</Text>
           </View>
 
-          {/* Login form */}
           <View style={styles.formContainer}>
             <View style={styles.formHeader}>
               <Shield size={24} color={Colors.primary} />
@@ -111,7 +117,7 @@ export default function LoginScreen() {
               <View style={styles.passwordContainer}>
                 <TextInput
                   ref={passwordInputRef}
-                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  style={[styles.input, styles.passwordInput]}
                   placeholder="••••••••"
                   value={password}
                   onChangeText={(text) => {
@@ -125,7 +131,7 @@ export default function LoginScreen() {
                 />
                 <TouchableOpacity
                   style={styles.eyeButton}
-                  onPress={() => setShowPassword(!showPassword)}
+                  onPress={() => setShowPassword((current) => !current)}
                 >
                   {showPassword ? (
                     <EyeOff size={20} color="#6B7280" />
@@ -164,9 +170,7 @@ export default function LoginScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            <Text style={styles.footerText}>
-              v1.0 • SmartTransport © 2024
-            </Text>
+            <Text style={styles.footerText}>v1.0 • SmartTransport © 2024</Text>
           </View>
         </View>
       </LinearGradient>
@@ -177,7 +181,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   gradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
   circle1: {
     position: 'absolute',
     width: 240,
@@ -205,9 +208,7 @@ const styles = StyleSheet.create({
     top: height * 0.55,
     left: width * 0.05,
   },
-  
   content: { alignItems: 'center', width: '100%', paddingHorizontal: 20 },
-  
   logoContainer: { alignItems: 'center', marginBottom: 48 },
   logoBackground: {
     width: 96,
@@ -222,11 +223,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 10,
-    backdropFilter: 'blur(10px)',
   },
   appTitle: { fontSize: 36, fontWeight: '800', color: '#fff', marginBottom: 6, letterSpacing: -0.5 },
   appSubtitle: { fontSize: 16, color: 'rgba(255, 255, 255, 0.9)', textAlign: 'center', fontWeight: '500' },
-  
   formContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.98)',
     borderRadius: 28,
@@ -242,9 +241,15 @@ const styles = StyleSheet.create({
   formHeader: { alignItems: 'center', marginBottom: 28 },
   formTitle: { fontSize: 26, fontWeight: '800', color: Colors.textPrimary, marginTop: 12, marginBottom: 4 },
   formSubtitle: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', fontWeight: '500' },
-  
   inputContainer: { marginBottom: 20 },
-  inputLabel: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   input: {
     borderWidth: 1.5,
     borderColor: Colors.divider,
@@ -261,20 +266,19 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   passwordContainer: { flexDirection: 'row', alignItems: 'center' },
+  passwordInput: { flex: 1, marginBottom: 0 },
   eyeButton: { padding: 12, marginLeft: 8 },
-  
-  error: { 
-    color: Colors.error, 
-    marginBottom: 20, 
-    textAlign: 'center', 
-    fontSize: 14, 
+  error: {
+    color: Colors.error,
+    marginBottom: 20,
+    textAlign: 'center',
+    fontSize: 14,
     fontWeight: '600',
     backgroundColor: Colors.errorLight,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
   },
-  
   button: { borderRadius: 14, overflow: 'hidden', marginTop: 12, marginBottom: 28 },
   buttonDisabled: { opacity: 0.68 },
   buttonGradient: {
@@ -286,5 +290,5 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   buttonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  footerText: { textAlign: 'center', color: 'rgba(255, 255, 255, 0.7)', fontSize: 12, fontWeight: '600' },
+  footerText: { textAlign: 'center', color: '#6B7280', fontSize: 12, fontWeight: '600' },
 });

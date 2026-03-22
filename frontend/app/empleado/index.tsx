@@ -1,50 +1,45 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, StatusColors } from '../../constants/Colors';
 import { useUser } from '../../context/UserContext';
-import { Reserva, escucharReservasPorTelefono } from '../../lib/firestore';
+import { escucharReservasPorUid, Reserva } from '../../lib/firestore';
 
 export default function MisReservas() {
   const router = useRouter();
-  const { telefono, setTelefono, logout } = useUser();
-  const [phoneInput, setPhoneInput] = useState(telefono);
+  const { authError, authUser, hasCompleteProfile, isAuthenticated, isBootstrapping, logout, profile, role } = useUser();
   const [reservas, setReservas] = useState<Reserva[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-
-  const buscar = useCallback(() => {
-    if (!phoneInput.trim()) return;
-    setTelefono(phoneInput.trim());
-    setSearched(true);
-    setLoading(true);
-  }, [phoneInput, setTelefono]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!telefono) return;
+    if (!authUser?.uid || role !== 'empleado' || !hasCompleteProfile) {
+      setLoading(false);
+      setReservas([]);
+      return;
+    }
+
     setLoading(true);
-    const unsubscribe = escucharReservasPorTelefono(telefono, (data) => {
-      setReservas(data);
+    const unsubscribe = escucharReservasPorUid(authUser.uid, (items) => {
+      setReservas(items);
       setLoading(false);
     });
-    return unsubscribe;
-  }, [telefono]);
 
-  const getStatusStyle = (estado: string) =>
-    StatusColors[estado] || { bg: Colors.secondary, text: Colors.textSecondary };
+    return unsubscribe;
+  }, [authUser?.uid, hasCompleteProfile, role]);
 
   const renderReserva = ({ item }: { item: Reserva }) => {
-    const st = getStatusStyle(item.estado);
+    const statusStyle =
+      StatusColors[item.estado] || { bg: Colors.secondary, text: Colors.textSecondary };
+
     return (
       <TouchableOpacity
         testID={`reserva-card-${item.id}`}
@@ -56,18 +51,20 @@ export default function MisReservas() {
       >
         <View style={styles.cardHeader}>
           <Text style={styles.cardName}>{item.nombre}</Text>
-          <View style={[styles.badge, { backgroundColor: st.bg }]}>
-            <Text style={[styles.badgeText, { color: st.text }]}>{item.estado}</Text>
+          <View style={[styles.badge, { backgroundColor: statusStyle.bg }]}>
+            <Text style={[styles.badgeText, { color: statusStyle.text }]}>{item.estado}</Text>
           </View>
         </View>
         <View style={styles.cardRow}>
           <Ionicons name="location-outline" size={15} color={Colors.textSecondary} />
-          <Text style={styles.cardDetail}>{item.zona} — {item.direccion}</Text>
+          <Text style={styles.cardDetail}>
+            {item.zona} - {item.direccion}
+          </Text>
         </View>
         <View style={styles.cardRow}>
           <Ionicons name="time-outline" size={15} color={Colors.textSecondary} />
           <Text style={styles.cardDetail}>
-            {item.horarioEntrada} – {item.horarioSalida} ({item.tipoTransporte})
+            {item.horarioEntrada} - {item.horarioSalida} ({item.tipoTransporte})
           </Text>
         </View>
         <View style={styles.cardRow}>
@@ -78,19 +75,42 @@ export default function MisReservas() {
     );
   };
 
+  if (isBootstrapping) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
+
+  if (authError || role !== 'empleado') {
+    return <Redirect href="/" />;
+  }
+
+  if (!hasCompleteProfile) {
+    return <Redirect href="/empleado/completar-perfil" />;
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        {/* Header mejorado */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>Mis Reservas</Text>
-            <Text style={styles.headerSubtitle}>Busca y gestiona tus bookings</Text>
+            <Text style={styles.headerSubtitle}>
+              {profile?.nombre ? `Hola, ${profile.nombre}` : 'Gestiona tus solicitudes'}
+            </Text>
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             testID="logout-btn"
-            style={styles.headerIconLogOut} 
+            style={styles.headerIconLogOut}
             activeOpacity={0.8}
             onPress={async () => {
               await logout();
@@ -98,28 +118,27 @@ export default function MisReservas() {
             }}
           >
             <Ionicons name="log-out-outline" size={18} color={Colors.error} />
-            <Text style={{ color: Colors.error, fontSize: 12, fontWeight: '700' }}>Cerrar sesión</Text>
+            <Text style={styles.logoutText}>Cerrar sesión</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Búsqueda mejorada */}
-        <View style={styles.searchSection}>
-          <View style={styles.searchBar}>
-            <Ionicons name="call-outline" size={20} color={Colors.textSecondary} />
-            <TextInput
-              testID="phone-input"
-              style={styles.searchInput}
-              placeholder="Tu número de teléfono"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="phone-pad"
-              value={phoneInput}
-              onChangeText={setPhoneInput}
-              onSubmitEditing={buscar}
-            />
-            <TouchableOpacity testID="search-btn" onPress={buscar} style={styles.searchBtn}>
-              <Ionicons name="search" size={18} color={Colors.primaryForeground} />
-            </TouchableOpacity>
+        <View style={styles.profileCard}>
+          <View style={styles.profileHeader}>
+            <Ionicons name="person-circle-outline" size={28} color={Colors.primary} />
+            <Text style={styles.profileTitle}>Perfil para reserva</Text>
           </View>
+          <Text style={styles.profileLine}>{profile?.nombre}</Text>
+          <Text style={styles.profileLine}>{profile?.telefono}</Text>
+          <Text style={styles.profileLine}>{profile?.direccion}</Text>
+          <Text style={styles.profileLine}>
+            {profile?.puntoReferencia} | {profile?.zona}
+          </Text>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => router.push('/empleado/completar-perfil')}
+          >
+            <Text style={styles.secondaryButtonText}>Editar perfil</Text>
+          </TouchableOpacity>
         </View>
 
         {loading ? (
@@ -127,15 +146,15 @@ export default function MisReservas() {
             <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.loadingText}>Cargando reservas...</Text>
           </View>
-        ) : searched && reservas.length === 0 ? (
+        ) : reservas.length === 0 ? (
           <View style={styles.center}>
             <Ionicons name="document-text-outline" size={64} color={Colors.border} />
-            <Text style={styles.emptyTitle}>Sin reservas</Text>
+            <Text style={styles.emptyTitle}>Aún no tienes reservas</Text>
             <Text style={styles.emptyDesc}>
-              No hay reservas registradas para este teléfono.
+              Cuando registres una reserva la verás aquí automáticamente.
             </Text>
           </View>
-        ) : reservas.length > 0 ? (
+        ) : (
           <FlatList
             testID="reservas-list"
             data={reservas}
@@ -144,14 +163,6 @@ export default function MisReservas() {
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
           />
-        ) : (
-          <View style={styles.center}>
-            <Ionicons name="search-outline" size={64} color={Colors.border} />
-            <Text style={styles.emptyTitle}>Ingresa tu teléfono</Text>
-            <Text style={styles.emptyDesc}>
-              Busca por tu número para ver tu historial de reservas, o crea una nueva con el botón inferior.
-            </Text>
-          </View>
         )}
 
         <TouchableOpacity
@@ -194,36 +205,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 12,
   },
-  searchSection: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: Colors.background },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  logoutText: { color: Colors.error, fontSize: 12, fontWeight: '700' },
+  profileCard: {
+    margin: 16,
     backgroundColor: Colors.surface,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
     borderColor: Colors.divider,
+  },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  profileTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  profileLine: { fontSize: 14, color: Colors.textSecondary, marginBottom: 6 },
+  secondaryButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    height: 52,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.primaryLight,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: Colors.textPrimary,
-    marginLeft: 10,
-  },
-  searchBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    padding: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  list: { paddingHorizontal: 16, paddingVertical: 12, paddingBottom: 100 },
+  secondaryButtonText: { color: Colors.primary, fontWeight: '700' },
+  list: { paddingHorizontal: 16, paddingBottom: 100 },
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
