@@ -165,3 +165,4 @@ npm install
 npx expo start
 
 Para el Admin web  cd AdminWeb/frontend
+npm run dev
