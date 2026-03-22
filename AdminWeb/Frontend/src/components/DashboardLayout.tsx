@@ -2,7 +2,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, CalendarCheck, ClipboardList, BarChart3, Database,
-  ChevronLeft, ChevronRight, Search, Bus, LogOut, Users, Settings,
+  ChevronLeft, ChevronRight, Search, Bus, LogOut, Users, Settings, Upload,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ const navItems = [
   { label: "Asistencia", path: "/asistencia", icon: ClipboardList, roles: ["admin", "empleado", "conductor"], color: "text-purple-600" },
   { label: "Analítica", path: "/analitica", icon: BarChart3, roles: ["admin", "empleado", "conductor"], color: "text-orange-600" },
   { label: "Procesamiento", path: "/procesamiento", icon: Database, roles: ["admin", "empleado", "conductor"], color: "text-indigo-600" },
+  { label: "Importar datos", path: "/importar-datos", icon: Upload, roles: ["admin"], color: "text-teal-600" },
   { label: "Gestión de usuarios", path: "/users", icon: Users, roles: ["admin"], color: "text-red-600" },
 ];
 

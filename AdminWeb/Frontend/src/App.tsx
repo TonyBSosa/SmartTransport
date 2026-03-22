@@ -12,6 +12,7 @@ import Reservas from "@/pages/Reservas";
 import Asistencia from "@/pages/Asistencia";
 import Analitica from "@/pages/Analitica";
 import Procesamiento from "@/pages/Procesamiento";
+import ImportData from "@/pages/ImportData";
 import Users from "@/pages/Users";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
@@ -71,6 +72,14 @@ const App = () => (
                           element={
                             <ProtectedRoute allowedRoles={["admin", "empleado", "conductor"]}>
                               <Procesamiento />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/importar-datos"
+                          element={
+                            <ProtectedRoute allowedRoles={["admin"]}>
+                              <ImportData />
                             </ProtectedRoute>
                           }
                         />
