@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  CalendarCheck, Users, UserX, XCircle, TrendingUp, TrendingDown,
+  Bus, CalendarCheck, Users, UserX, XCircle, TrendingUp, TrendingDown,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -10,12 +10,14 @@ import KpiCard from "@/components/KpiCard";
 import AlertaCard from "@/components/AlertaCard";
 import { useDataSourceFilter } from "@/context/DataSourceFilterContext";
 import {
+  buildRutasSugeridas,
   buildPlanificacionTransporte,
   getEventosAsistencia,
   getReservas,
   type EventoAsistenciaFirestore,
   type PlanificacionTransporte,
   type ReservaFirestore,
+  type RutaSugerida,
 } from "@/services/firestoreService";
 import { filterBySynthetic } from "@/utils/dataSourceFilter";
 
@@ -82,6 +84,10 @@ export default function Dashboard() {
   const eventosFiltrados = useMemo(() => filterBySynthetic(eventos, mode), [eventos, mode]);
   const planificacion = useMemo<PlanificacionTransporte[]>(
     () => buildPlanificacionTransporte(reservasFiltradas),
+    [reservasFiltradas]
+  );
+  const rutasSugeridas = useMemo<RutaSugerida[]>(
+    () => buildRutasSugeridas(reservasFiltradas),
     [reservasFiltradas]
   );
 
@@ -541,6 +547,68 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="premium-card p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-100 rounded-xl">
+                  <Bus className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Rutas sugeridas</h3>
+                  <p className="text-sm text-gray-500">Semana actual con demanda mínima de 5 pasajeros</p>
+                </div>
+              </div>
+              <div className="bg-emerald-100 px-4 py-2 rounded-xl">
+                <span className="text-sm font-semibold text-emerald-700">{rutasSugeridas.length} sugerencias</span>
+              </div>
+            </div>
+
+            {rutasSugeridas.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
+                <div className="text-4xl mb-3">🚌</div>
+                <p className="text-gray-700 font-semibold">No hay rutas sugeridas para la semana actual</p>
+                <p className="text-sm text-gray-500">
+                  Se generan automáticamente cuando una combinación alcanza 5 pasajeros o más.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {rutasSugeridas.map((ruta) => (
+                  <div
+                    key={ruta.id}
+                    className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100">
+                          <Bus className="h-5 w-5 text-emerald-700" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Ruta sugerida</p>
+                          <p className="text-lg font-bold text-gray-900">{ruta.zona}</p>
+                        </div>
+                      </div>
+                      <div className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white">
+                        {ruta.cantidadPasajeros} personas
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-white/80 p-3">
+                        <p className="text-xs font-medium text-gray-500">Día</p>
+                        <p className="mt-1 text-sm font-semibold text-gray-900">{ruta.dia}</p>
+                      </div>
+                      <div className="rounded-xl bg-white/80 p-3">
+                        <p className="text-xs font-medium text-gray-500">Hora</p>
+                        <p className="mt-1 text-sm font-semibold text-gray-900">{ruta.hora}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
