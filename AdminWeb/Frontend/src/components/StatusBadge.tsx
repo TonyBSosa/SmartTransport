@@ -1,18 +1,18 @@
 const statusStyles: Record<string, string> = {
-  "Activa": "bg-success/10 text-success",
-  "Agendada": "bg-success/10 text-success",
-  "Cancelada": "bg-destructive/10 text-destructive",
-  "Pendiente": "bg-warning/10 text-warning",
-  "Modificación": "bg-primary/10 text-primary",
-  "Solicitud de modificación": "bg-primary/10 text-primary",
-  "Solicitud de cancelación": "bg-warning/10 text-warning",
-  "Asistió": "bg-success/10 text-success",
-  "No asistió": "bg-destructive/10 text-destructive",
+  "Activa": "bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold",
+  "Agendada": "bg-sky-100 text-sky-800 border border-sky-300 font-semibold",
+  "Cancelada": "bg-red-100 text-red-800 border border-red-300 font-semibold",
+  "Pendiente": "bg-amber-100 text-amber-800 border border-amber-300 font-semibold",
+  "Modificación": "bg-indigo-100 text-indigo-800 border border-indigo-300 font-semibold",
+  "Solicitud de modificación": "bg-indigo-100 text-indigo-800 border border-indigo-300 font-semibold",
+  "Solicitud de cancelación": "bg-orange-100 text-orange-800 border border-orange-300 font-semibold",
+  "Asistió": "bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold",
+  "No asistió": "bg-red-100 text-red-800 border border-red-300 font-semibold",
 };
 
 export default function StatusBadge({ estado }: { estado: string }) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusStyles[estado] ?? "bg-muted text-muted-foreground"}`}>
+    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${statusStyles[estado] ?? "bg-slate-100 text-slate-700 border border-slate-300"}`}>
       {estado}
     </span>
   );

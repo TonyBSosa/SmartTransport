@@ -34,15 +34,7 @@ const DIAS = [
   { key: 'Domingo', short: 'Dom' },
 ];
 
-function formatHora(hours: number, minutes: number): string {
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
 
-const HORAS_DISPONIBLES = Array.from({ length: 48 }, (_, index) => {
-  const hours = Math.floor(index / 2);
-  const minutes = index % 2 === 0 ? 0 : 30;
-  return formatHora(hours, minutes);
-});
 
 export default function NuevaReserva() {
   const router = useRouter();
@@ -56,10 +48,14 @@ export default function NuevaReserva() {
   const [diasSemana, setDiasSemana] = useState<string[]>([]);
   const [horarioEntrada, setHorarioEntrada] = useState('');
   const [horarioSalida, setHorarioSalida] = useState('');
+  const [pickerType, setPickerType] = useState<'entrada' | 'salida' | null>(null);
+  const [pickerH, setPickerH] = useState('08');
+  const [pickerM, setPickerM] = useState('00');
+  const [pickerA, setPickerA] = useState('AM');
   const [tipoTransporte, setTipoTransporte] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
-  const [timePickerField, setTimePickerField] = useState<'entrada' | 'salida' | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const toggleDia = (dia: string) => {
     setDiasSemana((prev) =>
@@ -67,14 +63,32 @@ export default function NuevaReserva() {
     );
   };
 
-  const seleccionarHora = (hora: string) => {
-    if (timePickerField === 'entrada') {
-      setHorarioEntrada(hora);
-    } else if (timePickerField === 'salida') {
-      setHorarioSalida(hora);
+  const openPicker = (type: 'entrada' | 'salida') => {
+    setPickerType(type);
+    const val = type === 'entrada' ? horarioEntrada : horarioSalida;
+    if (val) {
+      const parts = val.split(' ');
+      const time = parts[0] || '08:00';
+      const ampm = parts[1] || 'AM';
+      const [h, m] = time.split(':');
+      setPickerH(h || '08');
+      setPickerM(m || '00');
+      setPickerA(ampm);
+    } else {
+      setPickerH('08');
+      setPickerM('00');
+      setPickerA('AM');
     }
-    setTimePickerField(null);
   };
+
+  const confirmPicker = () => {
+    const timeStr = `${pickerH}:${pickerM} ${pickerA}`;
+    if (pickerType === 'entrada') setHorarioEntrada(timeStr);
+    else if (pickerType === 'salida') setHorarioSalida(timeStr);
+    setPickerType(null);
+  };
+
+
 
   const handleSubmit = async () => {
     console.log('1. Entró a handleSubmit');
@@ -118,6 +132,7 @@ export default function NuevaReserva() {
       Alert.alert('Campo requerido', 'Por favor ingresa el horario de salida.');
       return;
     }
+
     if (!tipoTransporte) {
       Alert.alert('Campo requerido', 'Por favor selecciona el tipo de transporte.');
       return;
@@ -131,8 +146,8 @@ export default function NuevaReserva() {
       puntoReferencia: puntoReferencia.trim(),
       zona,
       diasSemana,
-      horarioEntrada: horarioEntrada.trim(),
-      horarioSalida: horarioSalida.trim(),
+      horarioEntrada,
+      horarioSalida,
       tipoTransporte,
       observaciones: observaciones.trim(),
     };
@@ -143,9 +158,7 @@ export default function NuevaReserva() {
       const id = await crearReserva(payload);
       console.log('4. crearReserva devolvió id:', id);
       setTelefono(telefonoNormalizado);
-      Alert.alert('Reserva guardada', 'Tu reserva se registró correctamente.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      setShowSuccess(true);
     } catch (error: any) {
       console.error('5. Error en handleSubmit:', error);
       console.error('6. Error code:', error?.code);
@@ -259,29 +272,29 @@ export default function NuevaReserva() {
           </View>
           <View style={styles.row}>
             <View style={[styles.field, styles.flex]}>
-              <Text style={styles.label}>Entrada *</Text>
+              <Text style={styles.label}>Hora de Entrada *</Text>
               <TouchableOpacity
                 testID="input-hora-entrada"
                 style={styles.input}
                 activeOpacity={0.8}
-                onPress={() => setTimePickerField('entrada')}
+                onPress={() => openPicker('entrada')}
               >
                 <Text style={horarioEntrada ? styles.inputText : styles.inputPlaceholder}>
-                  {horarioEntrada || '08:00'}
+                  {horarioEntrada || 'Seleccionar'}
                 </Text>
               </TouchableOpacity>
             </View>
             <View style={{ width: 12 }} />
             <View style={[styles.field, styles.flex]}>
-              <Text style={styles.label}>Salida *</Text>
+              <Text style={styles.label}>Hora de Salida *</Text>
               <TouchableOpacity
                 testID="input-hora-salida"
                 style={styles.input}
                 activeOpacity={0.8}
-                onPress={() => setTimePickerField('salida')}
+                onPress={() => openPicker('salida')}
               >
                 <Text style={horarioSalida ? styles.inputText : styles.inputPlaceholder}>
-                  {horarioSalida || '17:00'}
+                  {horarioSalida || 'Seleccionar'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -348,42 +361,109 @@ export default function NuevaReserva() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
         <Modal
-          visible={timePickerField !== null}
+          visible={pickerType !== null}
           transparent
           animationType="fade"
-          onRequestClose={() => setTimePickerField(null)}
+          onRequestClose={() => setPickerType(null)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>
-                {timePickerField === 'entrada'
-                  ? 'Selecciona hora de entrada'
-                  : 'Selecciona hora de salida'}
+          <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 20 }]}>
+            <View style={[styles.modalCard, { borderRadius: 24 }]}>
+              <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 20 }]}>
+                {pickerType === 'entrada' ? 'Hora de Entrada' : 'Hora de Salida'}
               </Text>
-              <ScrollView
-                style={styles.modalList}
-                contentContainerStyle={styles.modalListContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {HORAS_DISPONIBLES.map((hora) => (
-                  <TouchableOpacity
-                    key={hora}
-                    style={styles.timeOption}
-                    activeOpacity={0.8}
-                    onPress={() => seleccionarHora(hora)}
-                  >
-                    <Text style={styles.timeOptionText}>{hora}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                activeOpacity={0.8}
-                onPress={() => setTimePickerField(null)}
-              >
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', height: 200, marginBottom: 20, backgroundColor: Colors.background, borderRadius: 16, padding: 10 }}>
+                {/* Hours */}
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                  {Array.from({length: 12}, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
+                    <TouchableOpacity key={h} style={[styles.pickerItem, pickerH === h && { backgroundColor: Colors.primaryLight }]} onPress={() => setPickerH(h)}>
+                      <Text style={[styles.pickerItemText, pickerH === h && { color: Colors.primary, fontWeight: '700' }]}>{h}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: Colors.textSecondary, alignSelf: 'center', marginHorizontal: 8 }}>:</Text>
+                {/* Minutes */}
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                  {['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => (
+                    <TouchableOpacity key={m} style={[styles.pickerItem, pickerM === m && { backgroundColor: Colors.primaryLight }]} onPress={() => setPickerM(m)}>
+                      <Text style={[styles.pickerItemText, pickerM === m && { color: Colors.primary, fontWeight: '700' }]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <View style={{ width: 8 }} />
+                {/* AM/PM */}
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                  {['AM', 'PM'].map(a => (
+                    <TouchableOpacity key={a} style={[styles.pickerItem, pickerA === a && { backgroundColor: Colors.primaryLight }]} onPress={() => setPickerA(a)}>
+                      <Text style={[styles.pickerItemText, pickerA === a && { color: Colors.primary, fontWeight: '700' }]}>{a}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <TouchableOpacity style={[styles.submitBtn, { marginTop: 0 }]} activeOpacity={0.8} onPress={confirmPicker}>
+                <Ionicons name="checkmark" size={20} color={Colors.primaryForeground} />
+                <Text style={styles.submitBtnText}>Aceptar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalCancelBtn} activeOpacity={0.8} onPress={() => setPickerType(null)}>
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>        {/* Modal de Éxito */}
+        <Modal
+          visible={showSuccess}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowSuccess(false)}
+        >
+          <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 20 }]}>
+            <View style={[styles.modalCard, { borderRadius: 24 }]}>
+              <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                <Ionicons name="checkmark-circle" size={60} color={Colors.primary} />
+              </View>
+              <Text style={[styles.modalTitle, { textAlign: 'center', fontSize: 22, color: Colors.textPrimary }]}>
+                ¡Reserva Creada!
+              </Text>
+              <Text style={{ textAlign: 'center', color: Colors.textSecondary, fontSize: 16, marginBottom: 24 }}>
+                Tu reserva se ha registrado correctamente en el sistema.
+              </Text>
+              
+              <View style={{ gap: 12 }}>
+                <TouchableOpacity
+                  style={[styles.submitBtn, { marginTop: 0 }]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setShowSuccess(false);
+                    setNombre('');
+                    setDireccion('');
+                    setPuntoRef('');
+                    setZona('');
+                    setDiasSemana([]);
+                    setHorarioEntrada('');
+                    setHorarioSalida('');
+                    setTipoTransporte('');
+                    setObservaciones('');
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={Colors.primaryForeground} />
+                  <Text style={styles.submitBtnText}>Crear nueva reserva</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.modalCancelBtn, { flexDirection: 'row', gap: 8, marginTop: 0 }]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setShowSuccess(false);
+                    router.back();
+                  }}
+                >
+                  <Ionicons name="arrow-back-outline" size={20} color={Colors.textSecondary} />
+                  <Text style={styles.modalCancelText}>Volver al inicio</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -396,119 +476,152 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1 },
   scroll: { flex: 1 },
-  content: { padding: 16 },
+  content: { paddingHorizontal: 16, paddingVertical: 20 },
+  
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: Colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 12,
-    marginTop: 8,
+    letterSpacing: 0.6,
+    marginBottom: 14,
+    marginTop: 20,
   },
+  
   field: { marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: '500', color: Colors.textPrimary, marginBottom: 6 },
+  label: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, marginBottom: 8 },
+  
   input: {
     backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.divider,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
     color: Colors.textPrimary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  textArea: { height: 80, textAlignVertical: 'top' },
+  textArea: { height: 96, textAlignVertical: 'top' },
   inputText: {
     fontSize: 16,
+    fontWeight: '500',
     color: Colors.textPrimary,
+    paddingVertical: 4,
   },
   inputPlaceholder: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: Colors.textMuted,
+    paddingVertical: 4,
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: Colors.secondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.divider,
   },
   chipActive: {
     backgroundColor: Colors.primaryLight,
     borderColor: Colors.primary,
   },
-  chipText: { fontSize: 14, fontWeight: '500', color: Colors.textSecondary },
-  chipTextActive: { color: Colors.primary, fontWeight: '600' },
+  chipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'center' },
+  chipTextActive: { color: Colors.primary, fontWeight: '700' },
+  
   row: { flexDirection: 'row' },
+  
   submitBtn: {
     flexDirection: 'row',
     backgroundColor: Colors.primary,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    gap: 8,
+    marginTop: 20,
+    gap: 10,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  submitBtnDisabled: { opacity: 0.6 },
+  submitBtnDisabled: { opacity: 0.7 },
   submitBtnText: {
     color: Colors.primaryForeground,
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
+  
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+    paddingBottom: 0,
   },
   modalCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    maxHeight: '75%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   modalList: {
-    maxHeight: 320,
+    maxHeight: 360,
   },
   modalListContent: {
-    gap: 8,
+    gap: 6,
   },
   timeOption: {
-    backgroundColor: Colors.secondary,
-    borderRadius: 10,
+    backgroundColor: Colors.primaryLighter,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   timeOptionText: {
-    fontSize: 15,
-    color: Colors.textPrimary,
+    fontSize: 16,
+    color: Colors.primary,
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   modalCancelBtn: {
-    marginTop: 12,
+    marginTop: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.divider,
   },
   modalCancelText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pickerItem: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginVertical: 4,
+  },
+  pickerItemText: {
+    fontSize: 17,
     color: Colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

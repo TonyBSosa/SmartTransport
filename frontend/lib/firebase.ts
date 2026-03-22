@@ -1,21 +1,21 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyB2RkaU2hhvtDXT_c8Pfv1tDDjJyw7L6II",
+  authDomain: "transport-5fb0b.firebaseapp.com",
+  projectId: "transport-5fb0b",
+  storageBucket: "transport-5fb0b.firebasestorage.app",
+  messagingSenderId: "64170850379",
+  appId: "1:64170850379:web:634b9b8f6232dbc057f5ce",
 };
 
-console.log('FIREBASE apiKey existe?', !!process.env.EXPO_PUBLIC_FIREBASE_API_KEY);
-console.log('FIREBASE authDomain:', process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || null);
-console.log('FIREBASE projectId:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || null);
-console.log('FIREBASE appId existe?', !!process.env.EXPO_PUBLIC_FIREBASE_APP_ID);
+console.log('Firebase config:', firebaseConfig);
+console.log('Inicializando Firebase...');
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 console.log('Firebase app inicializada correctamente');
