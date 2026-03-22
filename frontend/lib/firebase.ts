@@ -14,9 +14,10 @@ const firebaseConfig = {
 console.log('Firebase config:', firebaseConfig);
 console.log('Inicializando Firebase...');
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 console.log('Firebase app inicializada correctamente');
 console.log('Firestore db inicializado correctamente');
+console.log('Firebase projectId activo:', app.options.projectId ?? null);

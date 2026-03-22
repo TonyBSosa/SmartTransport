@@ -1,4 +1,4 @@
-import { auth, db } from './firebase';
+import { app, auth, db } from './firebase';
 import {
   collection,
   addDoc,
@@ -43,8 +43,157 @@ export type ReservaInput = Omit<Reserva, 'id' | 'estado' | 'fechaCreacion' | 'ul
 type DiagnosticWriteResult = {
   ok: boolean;
   id?: string;
-  error?: unknown;
+  error?: {
+    message: string;
+    code?: string;
+    full?: unknown;
+  };
 };
+
+type RuntimeIssueType = 'auth' | 'payload' | 'connection' | 'sdk-runtime' | 'unknown';
+
+type FirebaseRuntimeDiagnostics = {
+  appInitialized: boolean;
+  dbInitialized: boolean;
+  projectId: string | null;
+  authUser: {
+    uid: string;
+    email: string | null;
+  } | null;
+  navigatorOnline: boolean | null;
+};
+
+export type CrearReservaResult = {
+  success: boolean;
+  docId?: string;
+  error?: {
+    type: RuntimeIssueType;
+    message: string;
+    code?: string;
+    full?: unknown;
+    timeoutTriggered?: boolean;
+    diagnosticWrite?: DiagnosticWriteResult;
+    undefinedFields?: string[];
+    retryAttempted?: boolean;
+    retrySucceeded?: boolean;
+    firebase: FirebaseRuntimeDiagnostics;
+  };
+};
+
+function getCurrentUserInfo() {
+  return auth.currentUser ? {
+    uid: auth.currentUser.uid,
+    email: auth.currentUser.email,
+  } : null;
+}
+
+function getFirebaseRuntimeDiagnostics(): FirebaseRuntimeDiagnostics {
+  const navigatorOnline =
+    typeof globalThis !== 'undefined' &&
+    'navigator' in globalThis &&
+    typeof globalThis.navigator?.onLine === 'boolean'
+      ? globalThis.navigator.onLine
+      : null;
+
+  return {
+    appInitialized: !!app,
+    dbInitialized: !!db,
+    projectId: app?.options?.projectId ?? null,
+    authUser: getCurrentUserInfo(),
+    navigatorOnline,
+  };
+}
+
+function buildReservaPayload(data: ReservaInput) {
+  return {
+    ...data,
+    telefono: normalizarTelefono(data.telefono),
+    estado: 'Agendada',
+    fechaCreacion: serverTimestamp(),
+    ultimaActualizacion: serverTimestamp(),
+  };
+}
+
+function removeNullAndUndefined<T extends Record<string, unknown>>(payload: T) {
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined && value !== null)
+  ) as T;
+}
+
+function getUndefinedAndNullFields(payload: Record<string, unknown>) {
+  return Object.entries(payload)
+    .filter(([, value]) => value === undefined || value === null)
+    .map(([key]) => key);
+}
+
+function isPayloadObviouslyInvalid(payload: Record<string, unknown>) {
+  return getUndefinedAndNullFields(payload).length > 0;
+}
+
+function normalizeError(error: any) {
+  return {
+    message: error?.message || 'Error desconocido',
+    code: error?.code,
+    full: error,
+  };
+}
+
+function classifyFailure(params: {
+  error: any;
+  firebase: FirebaseRuntimeDiagnostics;
+  undefinedFields: string[];
+  diagnosticWrite?: DiagnosticWriteResult;
+}): RuntimeIssueType {
+  const { error, firebase, undefinedFields, diagnosticWrite } = params;
+
+  if (!firebase.appInitialized || !firebase.dbInitialized) return 'sdk-runtime';
+  if (!firebase.authUser) return 'auth';
+  if (undefinedFields.length > 0) return 'payload';
+  if (error?.message === 'TIMEOUT_FIRESTORE_ADD_DOC_10S') {
+    return diagnosticWrite?.ok ? 'payload' : 'connection';
+  }
+  if (error?.code) {
+    if (String(error.code).startsWith('auth/')) return 'auth';
+    if (String(error.code).startsWith('firestore/') || String(error.code).includes('unavailable')) {
+      return 'connection';
+    }
+  }
+
+  return 'unknown';
+}
+
+async function addReservaDocWithTimeout(payload: Record<string, unknown>) {
+  const firestorePromise = addDoc(collection(db, 'reservas'), payload);
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('TIMEOUT_FIRESTORE_ADD_DOC_10S')), 10000)
+  );
+
+  return Promise.race([firestorePromise, timeoutPromise]);
+}
+
+async function retryAddReservaDoc(payload: Record<string, unknown>, attempts = 1) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      console.log(`[crearReserva] retry intento ${attempt} de ${attempts}`);
+      const docRef = await addReservaDocWithTimeout(payload);
+      console.log('[crearReserva] retry exitoso:', docRef.id);
+      return {
+        success: true as const,
+        docRef,
+      };
+    } catch (error) {
+      lastError = error;
+      console.error(`[crearReserva] retry falló en intento ${attempt}:`, error);
+    }
+  }
+
+  return {
+    success: false as const,
+    error: lastError,
+  };
+}
 
 export function normalizarTelefono(telefono: string): string {
   let t = String(telefono || '').trim();
@@ -60,77 +209,135 @@ export function normalizarTelefono(telefono: string): string {
 }
 
 export async function probarEscrituraMinimaReserva(): Promise<DiagnosticWriteResult> {
-  console.log('MIN-1. Iniciando prueba mínima de escritura en reservas');
-  console.log('MIN-2. auth.currentUser:', auth.currentUser ? {
-    uid: auth.currentUser.uid,
-    email: auth.currentUser.email,
-  } : null);
+  console.log('[crearReserva:min] inicio');
+  console.log('[crearReserva:min] firebase:', getFirebaseRuntimeDiagnostics());
 
   try {
     const docRef = await addDoc(collection(db, 'reservas'), {
-      test: 'funciona',
+      test: 'conexion_ok',
       fecha: new Date(),
     });
-    console.log('MIN-3. Escritura mínima exitosa. Documento:', docRef.id);
+
+    console.log('[crearReserva:min] escritura exitosa:', docRef.id);
     return { ok: true, id: docRef.id };
   } catch (error: any) {
-    console.error('MIN-4. Error en prueba mínima:', error);
-    console.error('MIN-5. Error code:', error?.code);
-    console.error('MIN-6. Error message:', error?.message);
-    return { ok: false, error };
+    const normalizedError = normalizeError(error);
+    console.error('[crearReserva:min] error completo:', normalizedError.full);
+    console.error('[crearReserva:min] error.code:', normalizedError.code);
+    console.error('[crearReserva:min] error.message:', normalizedError.message);
+    return { ok: false, error: normalizedError };
   }
 }
 
-export async function crearReserva(data: ReservaInput): Promise<string> {
-  const telefonoNormalizado = normalizarTelefono(data.telefono);
-  const firestorePayload = {
-    ...data,
-    telefono: telefonoNormalizado,
-    estado: 'Agendada',
-    fechaCreacion: serverTimestamp(),
-    ultimaActualizacion: serverTimestamp(),
-  };
-  const undefinedFields = Object.entries(firestorePayload)
-    .filter(([, value]) => value === undefined)
-    .map(([key]) => key);
+export async function crearReserva(data: ReservaInput): Promise<CrearReservaResult> {
+  const firebase = getFirebaseRuntimeDiagnostics();
+  const originalPayload = buildReservaPayload(data);
+  const undefinedFields = getUndefinedAndNullFields(originalPayload);
+  const cleanedPayload = removeNullAndUndefined(originalPayload);
 
-  console.log('A. crearReserva recibió data:', data);
-  console.log('B. db existe?', !!db);
-  console.log('B.1 auth.currentUser:', auth.currentUser ? {
-    uid: auth.currentUser.uid,
-    email: auth.currentUser.email,
-  } : null);
-  console.log('C. Payload final a Firestore:', firestorePayload);
-  console.log('C.1 Campos undefined en payload:', undefinedFields);
-  console.log('Antes de addDoc');
+  console.log('[crearReserva] inicio');
+  console.log('[crearReserva] firebase:', firebase);
+  console.log('[crearReserva] payload original:', originalPayload);
+  console.log('[crearReserva] payload limpio:', cleanedPayload);
+  console.log('[crearReserva] campos undefined/null:', undefinedFields);
+
+  if (!firebase.appInitialized || !firebase.dbInitialized) {
+    return {
+      success: false,
+      error: {
+        type: 'sdk-runtime',
+        message: 'Firebase app o Firestore db no están inicializados correctamente',
+        firebase,
+        undefinedFields,
+      },
+    };
+  }
+
+  if (!firebase.authUser) {
+    console.warn('[crearReserva] auth.currentUser es null');
+    return {
+      success: false,
+      error: {
+        type: 'auth',
+        message: 'auth.currentUser es null en runtime',
+        firebase,
+        undefinedFields,
+      },
+    };
+  }
+
+  if (isPayloadObviouslyInvalid(originalPayload)) {
+    console.warn('[crearReserva] payload inválido por campos undefined/null');
+    return {
+      success: false,
+      error: {
+        type: 'payload',
+        message: 'El payload contiene campos undefined o null',
+        firebase,
+        undefinedFields,
+      },
+    };
+  }
 
   try {
-    const firestorePromise = addDoc(collection(db, 'reservas'), firestorePayload);
+    console.log('[crearReserva] antes de addDoc');
+    const docRef = await addReservaDocWithTimeout(cleanedPayload);
+    console.log('[crearReserva] después de addDoc');
+    console.log('[crearReserva] documento creado:', docRef.id);
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT_FIRESTORE_ADD_DOC_10S')), 10000)
-    );
-
-    const docRef = await Promise.race([firestorePromise, timeoutPromise]) as Awaited<typeof firestorePromise>;
-    console.log('Después de addDoc / race');
-    console.log('D. Firestore creó documento:', docRef.id);
-    console.log('Documento creado:', docRef.id);
-    return docRef.id;
+    return {
+      success: true,
+      docId: docRef.id,
+    };
   } catch (error: any) {
-    console.error('E. Error dentro de crearReserva:', error);
-    console.error('F. Error code:', error?.code);
-    console.error('G. Error message:', error?.message);
-    console.error('crearReserva catch completo:', error);
-    console.error('crearReserva catch message:', error?.message);
-    console.error('crearReserva catch code:', error?.code);
+    const normalizedError = normalizeError(error);
+    console.error('[crearReserva] error completo:', normalizedError.full);
+    console.error('[crearReserva] error.code:', normalizedError.code);
+    console.error('[crearReserva] error.message:', normalizedError.message);
 
-    if (error?.message === 'TIMEOUT_FIRESTORE_ADD_DOC_10S') {
-      console.log('H. Timeout detectado. Ejecutando prueba mínima de escritura...');
-      const diagnosticResult = await probarEscrituraMinimaReserva();
-      console.log('I. Resultado prueba mínima:', diagnosticResult);
+    const timeoutTriggered = normalizedError.message === 'TIMEOUT_FIRESTORE_ADD_DOC_10S';
+    let diagnosticWrite: DiagnosticWriteResult | undefined;
+    let retryAttempted = false;
+    let retrySucceeded = false;
+
+    if (timeoutTriggered) {
+      console.log('[crearReserva] timeout detectado, ejecutando prueba mínima...');
+      diagnosticWrite = await probarEscrituraMinimaReserva();
+      console.log('[crearReserva] resultado prueba mínima:', diagnosticWrite);
     }
 
-    throw error;
+    retryAttempted = true;
+    const retryResult = await retryAddReservaDoc(cleanedPayload, 1);
+    if (retryResult.success) {
+      retrySucceeded = true;
+      return {
+        success: true,
+        docId: retryResult.docRef.id,
+      };
+    }
+
+    const classifiedType = classifyFailure({
+      error: normalizedError.full,
+      firebase,
+      undefinedFields,
+      diagnosticWrite,
+    });
+
+    return {
+      success: false,
+      error: {
+        type: classifiedType,
+        message: normalizedError.message,
+        code: normalizedError.code,
+        full: normalizedError.full,
+        timeoutTriggered,
+        diagnosticWrite,
+        undefinedFields,
+        retryAttempted,
+        retrySucceeded,
+        firebase,
+      },
+    };
   }
 }
 
