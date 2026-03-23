@@ -170,7 +170,7 @@ export default function LoginScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            <Text style={styles.footerText}>v1.0 • SmartTransport © 2024</Text>
+            <Text style={styles.footerText}>v1.0 • SmartTransport © 2026</Text>
           </View>
         </View>
       </LinearGradient>
