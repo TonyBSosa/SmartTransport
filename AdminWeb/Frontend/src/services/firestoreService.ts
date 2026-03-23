@@ -49,8 +49,8 @@ export interface RutaSugerida {
   cantidadPasajeros: number;
 }
 
-const CAPACIDAD_BUS = 10;
-const MINIMO_PASAJEROS_RUTA = 5;
+const CAPACIDAD_BUS = 15;
+const MINIMO_PASAJEROS_RUTA = 10;
 
 function toDate(value: unknown): Date | null {
   if (!value) return null;
